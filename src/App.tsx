@@ -37,6 +37,7 @@ type Mood = 'Fresh' | 'Comforting' | 'Bold' | 'Familiar'
 type Hunger = 'Light' | 'Proper' | 'Feast'
 type TimePreference = 'Quick' | 'No rush'
 type DietaryPreference = Tag | 'No preference'
+type MealPeriod = 'Dinner' | 'Lunch' | 'Brunch'
 type ServerMessage = {
   title: string
   description: string
@@ -127,6 +128,11 @@ type AppCopy = {
   languageLabel: string
   languagePlaceholder: string
   languageOptions: string
+  restaurantName: string
+  address: string
+  mealLabel: string
+  mealOptions: string
+  meals: Record<MealPeriod, string>
   draftLabel: string
   dismissMessage: string
   allergyReminder: { title: string; description: string }
@@ -142,6 +148,9 @@ type AppCopy = {
 }
 
 const languages: Locale[] = ['EN', 'FR']
+const meals: MealPeriod[] = ['Dinner', 'Lunch', 'Brunch']
+const heroLogoSrc = '/utopia-logo.png?v=2'
+const heroBackgroundSrc = ''
 const money = (value: number) => `CA$${value.toFixed(2)}`
 const categoryId = (category: Category) => category.toLowerCase().replace(/\s+/g, '-')
 const filterTagIcons: Record<Tag, string> = {
@@ -166,6 +175,15 @@ const ui: Record<Locale, AppCopy> = {
     languageLabel: 'Language selector',
     languagePlaceholder: 'Language',
     languageOptions: 'Language options',
+    restaurantName: 'Utopia cafe & grill',
+    address: '586 college st.',
+    mealLabel: 'Meal period',
+    mealOptions: 'Meal options',
+    meals: {
+      Dinner: 'Dinner',
+      Lunch: 'Lunch',
+      Brunch: 'Brunch',
+    },
     draftLabel: 'public menu draft',
     dismissMessage: 'Dismiss message',
     allergyReminder: {
@@ -303,6 +321,15 @@ const ui: Record<Locale, AppCopy> = {
     languageLabel: 'Selecteur de langue',
     languagePlaceholder: 'Langue',
     languageOptions: 'Options de langue',
+    restaurantName: 'Utopia cafe & grill',
+    address: '586 college st.',
+    mealLabel: 'Service',
+    mealOptions: 'Options de service',
+    meals: {
+      Dinner: 'Diner',
+      Lunch: 'Dejeuner',
+      Brunch: 'Brunch',
+    },
     draftLabel: 'ebauche de menu public',
     dismissMessage: 'Fermer le message',
     allergyReminder: {
@@ -531,6 +558,18 @@ function LogoMark() {
   return <span className="logo-mark" aria-hidden="true">u</span>
 }
 
+function Wordmark() {
+  if (heroLogoSrc) {
+    return <img alt="utopia" className="wordmark-image" src={heroLogoSrc} />
+  }
+
+  return (
+    <span className="wordmark" aria-hidden="true">
+      utopia
+    </span>
+  )
+}
+
 function DishArt({ dish, locale, large = false }: { dish: Dish; locale: Locale; large?: boolean }) {
   return (
     <div
@@ -564,6 +603,7 @@ export function App() {
     const saved = localStorage.getItem('utopia-language')
     return saved === 'FR' ? 'FR' : 'EN'
   })
+  const [meal, setMeal] = useState<MealPeriod>('Dinner')
   const [shortlist, setShortlist] = useState<string[]>(() => JSON.parse(localStorage.getItem('utopia-shortlist') || '[]'))
   const [answers, setAnswers] = useState<{ hunger?: Hunger; mood?: Mood; dietary?: DietaryPreference; time?: TimePreference }>({})
   const [question, setQuestion] = useState(0)
@@ -628,41 +668,82 @@ export function App() {
   return (
     <main className="site-shell">
       <div className="phone-frame">
-        <header className="topbar">
-          <span className="eyebrow">UTOPIA CAFE & GRILL · TORONTO</span>
-          <div className="language-select">
-            <Select
-              aria-label={copy.languageLabel}
-              fullWidth
-              placeholder={copy.languagePlaceholder}
-              value={language}
-              onChange={(value) => value && setLanguage(value as Locale)}
-            >
-              <Select.Trigger>
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover placement="bottom end">
-                <ListBox aria-label={copy.languageOptions}>
-                  {languages.map((option) => (
-                    <ListBox.Item id={option} key={option} textValue={option}>
-                      <Label>{option}</Label>
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
+        <header className="hero-header">
+          <div className="hero-header-media" aria-hidden="true">
+            {heroBackgroundSrc ? <img alt="" className="hero-header-image" src={heroBackgroundSrc} /> : null}
           </div>
+          <div className="hero-header-top">
+            <Wordmark />
+            <div className="language-select">
+              <Select
+                aria-label={copy.languageLabel}
+                className="header-select"
+                placeholder={copy.languagePlaceholder}
+                value={language}
+                onChange={(value) => value && setLanguage(value as Locale)}
+              >
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover placement="bottom end">
+                  <ListBox aria-label={copy.languageOptions}>
+                    {languages.map((option) => (
+                      <ListBox.Item id={option} key={option} textValue={option}>
+                        <Label>{option}</Label>
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                    ))}
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+            </div>
+          </div>
+          <div className="hero-header-copy">
+            <h1>{copy.restaurantName}</h1>
+            <div className="hero-meta">
+              <span>{copy.address}</span>
+              <span aria-hidden="true">|</span>
+              <Select
+                aria-label={copy.mealLabel}
+                className="header-select meal-select"
+                value={meal}
+                onChange={(value) => value && setMeal(value as MealPeriod)}
+              >
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox aria-label={copy.mealOptions}>
+                    {meals.map((option) => (
+                      <ListBox.Item id={option} key={option} textValue={copy.meals[option]}>
+                        <Label>{copy.meals[option]}</Label>
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                    ))}
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+            </div>
+          </div>
+          <SearchField
+            aria-label={copy.menu.searchLabel}
+            className="hero-search"
+            fullWidth
+            value={search}
+            onChange={(value) => {
+              setSearch(value)
+              if (view !== 'menu') navigate('menu')
+            }}
+          >
+            <SearchField.Group>
+              <SearchField.SearchIcon />
+              <SearchField.Input placeholder={copy.menu.searchPlaceholder} />
+              <SearchField.ClearButton />
+            </SearchField.Group>
+          </SearchField>
         </header>
-
-        <div className="brand-row">
-          <LogoMark />
-          <div>
-            <h1>Utopia</h1>
-            <p>586 College St · {copy.draftLabel}</p>
-          </div>
-        </div>
 
         {serverMessage && (
           <div className="alert-wrap" id="server-alert">
@@ -684,9 +765,6 @@ export function App() {
             onClear={() => setActiveFilters([])}
             onDish={chooseDish}
             onFilters={setActiveFilters}
-            onNavigate={navigate}
-            onSearch={setSearch}
-            search={search}
             shownDishes={shownDishes}
             strings={copy.menu}
           />
@@ -806,17 +884,14 @@ export function App() {
 type MenuViewProps = {
   shownDishes: Dish[]
   activeFilters: Tag[]
-  search: string
-  onSearch: (value: string) => void
   onFilters: (tags: Tag[]) => void
   onClear: () => void
   onDish: (dish: Dish) => void
-  onNavigate: (view: View) => void
   locale: Locale
   strings: MenuStrings
 }
 
-function MenuView({ shownDishes, activeFilters, search, onSearch, onFilters, onClear, onDish, onNavigate, locale, strings }: MenuViewProps) {
+function MenuView({ shownDishes, activeFilters, onFilters, onClear, onDish, locale, strings }: MenuViewProps) {
   const featuredDishes = [
     dishes.find((dish) => dish.id === 'utopia-burger') ?? dishes[0],
     dishes.find((dish) => dish.id === 'poutine') ?? dishes[1],
@@ -841,19 +916,6 @@ function MenuView({ shownDishes, activeFilters, search, onSearch, onFilters, onC
           ))}
         </div>
       </section>
-
-      <SearchField
-        aria-label={strings.searchLabel}
-        fullWidth
-        value={search}
-        onChange={onSearch}
-      >
-        <SearchField.Group>
-          <SearchField.SearchIcon />
-          <SearchField.Input placeholder={strings.searchPlaceholder} />
-          <SearchField.ClearButton />
-        </SearchField.Group>
-      </SearchField>
 
       <div className="filter-row">
         <ToggleButtonGroup
