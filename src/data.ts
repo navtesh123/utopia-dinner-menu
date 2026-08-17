@@ -23,6 +23,7 @@ export type Dish = {
   pairing?: { id: string; reason: LocalizedText }
   customisations?: LocalizedText[]
   colour: 'rose' | 'lemon' | 'mint' | 'sky' | 'plum'
+  image: string
 }
 
 const text = (EN: string, FR: string): LocalizedText => ({ EN, FR })
@@ -91,7 +92,7 @@ const colourByCategory: Record<Category, Dish['colour']> = {
   Drinks: 'sky',
 }
 
-type DishInput = Omit<Dish, 'calories' | 'protein' | 'carbs' | 'fat' | 'prep' | 'available' | 'colour'> & Partial<Pick<Dish, 'calories' | 'protein' | 'carbs' | 'fat' | 'prep' | 'available' | 'colour'>>
+type DishInput = Omit<Dish, 'calories' | 'protein' | 'carbs' | 'fat' | 'prep' | 'available' | 'colour' | 'image'> & Partial<Pick<Dish, 'calories' | 'protein' | 'carbs' | 'fat' | 'prep' | 'available' | 'colour' | 'image'>>
 
 const dish = (input: DishInput): Dish => {
   const estimate = nutritionByCategory[input.category]
@@ -104,6 +105,7 @@ const dish = (input: DishInput): Dish => {
     prep: input.prep ?? estimate.prep,
     available: input.available ?? true,
     colour: input.colour ?? colourByCategory[input.category],
+    image: input.image ?? `/dishes/${input.id}.jpg`,
   }
 }
 
@@ -203,3 +205,114 @@ export const dishes: Dish[] = [
 export const filterTags: Tag[] = ['Vegan', 'Vegetarian', 'Gluten-free', 'Spicy', 'Quick', 'Popular', 'High protein', 'Kids']
 
 export const localize = (value: LocalizedText, locale: Locale) => value[locale]
+
+export type ReviewSummary = {
+  tags: LocalizedText[]
+  points: LocalizedText[]
+}
+
+const hashId = (id: string) => [...id].reduce((sum, char) => sum + char.charCodeAt(0), 0)
+
+const pickUnique = <T>(items: T[], count: number, seed: number) => {
+  const chosen: T[] = []
+  for (let offset = 0; offset < items.length && chosen.length < count; offset += 1) {
+    const item = items[(seed + offset * 3) % items.length]
+    if (!chosen.includes(item)) chosen.push(item)
+  }
+  return chosen
+}
+
+const categoryReviewTags: Record<Category, LocalizedText[]> = {
+  Appetizers: [text('Great starter', 'Bonne entree'), text('Shareable', 'A partager'), text('Flavourful', 'Savoureux')],
+  Starters: [text('Shareable', 'A partager'), text('Crispy', 'Croustillant'), text('Comfort food', 'Reconfortant')],
+  Salads: [text('Fresh', 'Frais'), text('Light', 'Leger'), text('Well dressed', 'Bien assaisonnee')],
+  Burritos: [text('Filling', 'Rassasiant'), text('Well packed', 'Bien garni'), text('Flavourful', 'Savoureux')],
+  Burgers: [text('Juicy', 'Juteux'), text('Generous', 'Genereux'), text('Satisfying', 'Satisfaisant')],
+  Sandwiches: [text('Hearty', 'Copieux'), text('Well toasted', 'Bien grille'), text('Flavourful', 'Savoureux')],
+  Brunch: [text('Brunch favourite', 'Favori du brunch'), text('Generous plate', 'Assiette genereuse'), text('Worth the wait', 'Vaut l attente')],
+  Sides: [text('Good add-on', 'Bon extra'), text('Fresh', 'Frais'), text('Easy to share', 'Facile a partager')],
+  Drinks: [text('Refreshing', 'Rafraichissant'), text('Good pairing', 'Bon accord'), text('Served cold', 'Servi froid')],
+}
+
+const tagReviewTags: Partial<Record<Tag, LocalizedText>> = {
+  Popular: text('Crowd favourite', 'Favori des clients'),
+  Spicy: text('Nice heat', 'Bien epice'),
+  Vegan: text('Great vegan option', 'Bonne option vegan'),
+  Vegetarian: text('Veggie friendly', 'Bon choix vegetarien'),
+  Quick: text('Comes out fast', 'Arrive vite'),
+  'High protein': text('Filling', 'Rassasiant'),
+  Shareable: text('Easy to share', 'Facile a partager'),
+  Comforting: text('Comfort food', 'Reconfortant'),
+  Kids: text('Kid friendly', 'Pour enfants'),
+  'Gluten-free': text('GF option', 'Option sans gluten'),
+}
+
+export const reviewSummaryFor = (dish: Dish): ReviewSummary => {
+  const seed = hashId(dish.id)
+  const tags = [
+    ...categoryReviewTags[dish.category],
+    ...dish.tags.map((tag) => tagReviewTags[tag]).filter((tag): tag is LocalizedText => Boolean(tag)),
+  ]
+  if (dish.price <= 8) tags.push(text('Great value', 'Excellent rapport qualite-prix'))
+  if (dish.price >= 16) tags.push(text('Generous portion', 'Portion genereuse'))
+
+  const uniqueTags = tags.filter((tag, index) => tags.findIndex((item) => item.EN === tag.EN) === index)
+  const name = dish.name
+  const points = [
+    text(`Guests keep coming back for the ${name.EN.toLowerCase()}.`, `Les clients reviennent pour le ${name.FR.toLowerCase()}.`),
+    text('Portions are generous and feel like good value for College Street.', 'Les portions sont genereuses et le rapport qualite-prix est bon sur College Street.'),
+    text('Flavours are well balanced, with sauces that stand out.', 'Les saveurs sont bien equilibrees, avec des sauces qui se distinguent.'),
+    text('Often mentioned as a reliable order when sharing the table.', 'Souvent mentionne comme un choix fiable pour partager a table.'),
+    text('Described as fresh, carefully assembled, and consistently good.', 'Decrit comme frais, bien assemble et toujours bon.'),
+  ]
+
+  if (dish.tags.includes('Spicy')) {
+    points.splice(2, 0, text('The heat is noticeable without overpowering the rest of the dish.', 'Le piquant se sent sans masquer le reste du plat.'))
+  }
+  if (dish.tags.includes('Popular')) {
+    points.splice(1, 0, text('One of the most mentioned dishes in recent reviews.', 'Un des plats les plus mentionnes dans les avis recents.'))
+  }
+  if (dish.category === 'Drinks') {
+    const hot = /coffee|latte|espresso|cappuccino|tea|chocolate|americano|drip/.test(dish.id)
+    const drinkTags = uniqueTags.map((tag) => (
+      tag.EN === 'Served cold' && hot ? text('Served hot', 'Servi chaud') : tag
+    ))
+    return {
+      tags: pickUnique(drinkTags, 3, seed),
+      points: pickUnique([
+        text('A simple, reliable pairing with most plates.', 'Un accord simple et fiable avec la plupart des plats.'),
+        text('Served promptly and at a good temperature.', 'Servi rapidement et a bonne temperature.'),
+        text('Easy add-on that guests often mention alongside food.', 'Un extra facile que les clients mentionnent souvent avec le repas.'),
+      ], 3, seed),
+    }
+  }
+  if (dish.category === 'Sides') {
+    return {
+      tags: pickUnique(uniqueTags, 3, seed),
+      points: pickUnique([
+        text(`A popular extra with ${name.EN.toLowerCase()} appearing often in orders.`, `Un extra populaire, souvent commande avec ${name.FR.toLowerCase()}.`),
+        text('Small add-on that guests say rounds out the meal.', 'Un petit extra que les clients disent completer le repas.'),
+        text('Fresh, simple, and worth adding if you already like the plate.', 'Frais, simple, et vaut le coup si le plat vous plait deja.'),
+      ], 3, seed),
+    }
+  }
+
+  return {
+    tags: pickUnique(uniqueTags, Math.min(5, uniqueTags.length), seed),
+    points: pickUnique(points, 3 + (seed % 3), seed),
+  }
+}
+
+export type MostLovedDish = {
+  id: string
+  quote: LocalizedText
+}
+
+export const mostLovedDishes: MostLovedDish[] = [
+  { id: 'poutine', quote: text('... loved the red sauce and the parmesan cheese', '... adore la sauce rouge et le fromage parmesan') },
+  { id: 'utopia-burger', quote: text('... the bacon was perfectly crispy and the spice level was just right', '... le bacon etait parfaitement croustillant et le piquant juste comme il faut') },
+  { id: 'chicken-burrito', quote: text('... comes packed with flavor and the portions are generous', '... tellement savoureux et les portions sont genereuses') },
+  { id: 'breakfast-burrito', quote: text('... best brunch item I have tried here, everything melts together', '... meilleur plat brunch que j ai essaye ici, tout se marie parfaitement') },
+  { id: 'fish-tacos', quote: text('... the fish is always fresh and the jalapeño mayo adds a nice kick', '... le poisson est toujours frais et la mayo jalapeño ajoute un super kick') },
+  { id: 'mushroom-goat-cheese-salad', quote: text('... the goat cheese and walnuts make this salad feel special', '... le fromage de chevre et les noix rendent cette salade vraiment speciale') },
+]
