@@ -219,6 +219,13 @@ const chefProfile = {
   },
   recommendations: ['utopia-burger', 'poutine', 'fish-tacos'],
 }
+const haptic = (style: 'light' | 'medium' | 'heavy' = 'light') => {
+  if ('vibrate' in navigator) {
+    const duration = style === 'light' ? 10 : style === 'medium' ? 20 : 30
+    navigator.vibrate(duration)
+  }
+}
+
 const money = (value: number) => `CA$${value.toFixed(2)}`
 const categoryId = (category: Category) => category.toLowerCase().replace(/\s+/g, '-')
 const defaultCustomizationFor = (dish: Dish): DishCustomizationState => ({
@@ -972,7 +979,10 @@ export function App() {
                   className={`hero-photo-dot${index === heroSlide ? ' is-active' : ''}`}
                   key={src}
                   type="button"
-                  onClick={() => setHeroSlide(index)}
+                  onClick={() => {
+                    haptic('light')
+                    setHeroSlide(index)
+                  }}
                 />
               ))}
             </div>
@@ -983,7 +993,10 @@ export function App() {
               className="header-select"
               placeholder={copy.languagePlaceholder}
               value={language}
-              onChange={(value) => value && setLanguage(value as Locale)}
+              onChange={(value) => {
+                haptic('light')
+                value && setLanguage(value as Locale)
+              }}
             >
               <Select.Trigger>
                 <Select.Value>{language}</Select.Value>
@@ -1023,7 +1036,10 @@ export function App() {
                 aria-label={copy.mealLabel}
                 className="header-select meal-select"
                 value={meal}
-                onChange={(value) => value && setMeal(value as MealPeriod)}
+                onChange={(value) => {
+                  haptic('light')
+                  value && setMeal(value as MealPeriod)
+                }}
               >
                 <Select.Trigger>
                   <Select.Value />
@@ -1064,6 +1080,7 @@ export function App() {
               <SearchField.Input
                 placeholder={copy.menu.searchPlaceholder}
                 onPointerDown={(event) => {
+                  haptic('light')
                   event.preventDefault()
                   navigate('search')
                 }}
@@ -1082,7 +1099,10 @@ export function App() {
                 <Alert.Title>{serverMessage.title}</Alert.Title>
                 <Alert.Description>{serverMessage.description}</Alert.Description>
               </Alert.Content>
-              <CloseButton aria-label={copy.dismissMessage} onPress={() => setServerMessage(null)} />
+              <CloseButton aria-label={copy.dismissMessage} onPress={() => {
+                haptic('light')
+                setServerMessage(null)
+              }} />
             </Alert>
           </div>
         )}
@@ -1179,7 +1199,10 @@ export function App() {
         )}
 
         {shortlistCount > 0 && view !== 'search' && view !== 'chef' && (
-          <button className="cart-banner" type="button" onClick={() => setShowShortlistModal(true)}>
+          <button className="cart-banner" type="button" onClick={() => {
+            haptic('medium')
+            setShowShortlistModal(true)
+          }}>
             <span className="cart-banner-text">{copy.cart.itemsAdded(shortlistCount)}</span>
             <span className="cart-banner-button">
               {copy.cart.viewCart}
@@ -1190,10 +1213,16 @@ export function App() {
 
         {showShortlistModal && (
           <>
-            <div className="modal-overlay" onClick={() => setShowShortlistModal(false)} />
+            <div className="modal-overlay" onClick={() => {
+              haptic('light')
+              setShowShortlistModal(false)
+            }} />
             <div className="bottom-sheet">
               <div className="bottom-sheet-handle" />
-              <button className="bottom-sheet-close" type="button" onClick={() => setShowShortlistModal(false)} aria-label={copy.dismissMessage}>
+              <button className="bottom-sheet-close" type="button" onClick={() => {
+                haptic('light')
+                setShowShortlistModal(false)
+              }} aria-label={copy.dismissMessage}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 6l-12 12m0-12l12 12" />
                 </svg>
@@ -1205,6 +1234,7 @@ export function App() {
                 quantities={quantities}
                 onRemove={toggleShortlist}
                 onServer={() => {
+                  haptic('medium')
                   showServerMessage({
                     title: copy.readyForServer.title,
                     description: copy.readyForServer.description,
@@ -1221,11 +1251,13 @@ export function App() {
         {showDetailSheet && selected && (
           <>
             <div className="modal-overlay" onClick={() => {
+              haptic('light')
               setShowDetailSheet(false)
               window.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' })
             }} />
             <div className="bottom-sheet">
               <button className="bottom-sheet-close" type="button" onClick={() => {
+                haptic('light')
                 setShowDetailSheet(false)
                 window.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' })
               }} aria-label={copy.dismissMessage}>
@@ -1237,17 +1269,22 @@ export function App() {
                 dish={selected}
                 customization={dishCustomizations[selected.id] ?? defaultCustomizationFor(selected)}
                 locale={language}
-                onAllergy={() => showServerMessage({
-                  title: copy.allergyReminder.title,
-                  description: copy.allergyReminder.description,
-                  status: 'warning',
-                })}
+                onAllergy={() => {
+                  haptic('light')
+                  showServerMessage({
+                    title: copy.allergyReminder.title,
+                    description: copy.allergyReminder.description,
+                    status: 'warning',
+                  })
+                }}
                 onBack={() => {
+                  haptic('light')
                   setShowDetailSheet(false)
                   window.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' })
                 }}
                 onPairing={chooseDish}
                 onSave={() => {
+                  haptic('medium')
                   toggleShortlist(selected.id)
                   setShowDetailSheet(false)
                   window.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' })
@@ -1307,7 +1344,10 @@ function SearchView({ search, results, onSearch, onClose, onDish, locale, closeL
           className="search-page-back"
           size="sm"
           variant="ghost"
-          onPress={onClose}
+          onPress={() => {
+            haptic('light')
+            onClose()
+          }}
         >
           <Icon className="search-page-back-icon" name="back" />
         </Button>
@@ -1340,7 +1380,10 @@ function SearchView({ search, results, onSearch, onClose, onDish, locale, closeL
             : <p className="empty">{strings.empty}</p>}
         </div>
       ) : (
-          <button className="search-page-dismiss" type="button" onClick={onClose} tabIndex={-1} aria-label={closeLabel} />
+          <button className="search-page-dismiss" type="button" onClick={() => {
+            haptic('light')
+            onClose()
+          }} tabIndex={-1} aria-label={closeLabel} />
       )}
     </section>
   )
@@ -1365,12 +1408,18 @@ function QuantityStepper({
         aria-label="-"
         className={value <= 1 ? 'quantity-stepper-minus-muted' : undefined}
         type="button"
-        onClick={() => onChange(value - 1)}
+        onClick={() => {
+          haptic('light')
+          onChange(value - 1)
+        }}
       >
         −
       </button>
       <span>{value}</span>
-      <button aria-label="+" type="button" onClick={() => onChange(value + 1)}>
+      <button aria-label="+" type="button" onClick={() => {
+        haptic('light')
+        onChange(value + 1)
+      }}>
         +
       </button>
     </div>
@@ -1387,7 +1436,10 @@ function ChefView({ locale, onBack, onDish, strings }: { locale: Locale; onBack:
       <div className="chef-view-hero">
         <img alt="" className="chef-view-image" src={chefProfile.image} />
         <div className="chef-view-scrim" aria-hidden="true" />
-        <Button className="chef-view-back" size="sm" variant="ghost" onPress={onBack}>
+        <Button className="chef-view-back" size="sm" variant="ghost" onPress={() => {
+          haptic('light')
+          onBack()
+        }}>
           <Icon className="chef-view-back-icon" name="back" />
           <span>{strings.back}</span>
         </Button>
@@ -1411,7 +1463,10 @@ function ChefView({ locale, onBack, onDish, strings }: { locale: Locale; onBack:
           </div>
           <div className="chef-recommendation-track" role="list">
             {recommendedDishes.map((dish) => (
-              <button className="chef-recommendation-card" key={dish.id} type="button" role="listitem" onClick={() => onDish(dish)}>
+              <button className="chef-recommendation-card" key={dish.id} type="button" role="listitem" onClick={() => {
+                haptic('medium')
+                onDish(dish)
+              }}>
                 <img alt="" src={dish.image} />
                 <span>
                   <strong>{localize(dish.name, locale)}</strong>
@@ -1443,7 +1498,10 @@ function MostLovedSection({ locale, onDish, onAdd, onQuantity, quantities }: { l
       <div className="most-loved-track" role="list">
         {lovedDishes.map(({ dish, quote }) => (
           <article className="most-loved-card" key={dish.id} role="listitem">
-            <button className="most-loved-card-button" type="button" onClick={() => onDish(dish)}>
+            <button className="most-loved-card-button" type="button" onClick={() => {
+              haptic('medium')
+              onDish(dish)
+            }}>
               <div className="most-loved-card-image-wrap">
                 <img alt="" className="most-loved-card-image" src={dish.image} />
               </div>
@@ -1472,6 +1530,7 @@ function MostLovedSection({ locale, onDish, onAdd, onQuantity, quantities }: { l
                       className="most-loved-card-add"
                       size="sm"
                       onClick={(event) => {
+                        haptic('medium')
                         event.stopPropagation()
                         onAdd(dish.id)
                       }}
@@ -1531,7 +1590,10 @@ function MenuView({ shownDishes, activeFilters, onFilters, onClear, onDish, onCh
               className={`hero-card hero-card-${index + 1}`}
               key={dish.id}
               role="listitem"
-              onClick={() => onDish(dish)}
+              onClick={() => {
+                haptic('medium')
+                onDish(dish)
+              }}
             >
               <img alt="" className="hero-card-image" src={dish.image} />
               <div className="hero-card-scrim" />
@@ -1554,8 +1616,14 @@ function MenuView({ shownDishes, activeFilters, onFilters, onClear, onDish, onCh
                   <Button
                     className="hero-card-add"
                     size="sm"
-                    onClick={(event) => event.stopPropagation()}
-                    onPress={() => onAdd(dish.id)}
+                    onClick={(event) => {
+                      haptic('medium')
+                      event.stopPropagation()
+                    }}
+                    onPress={() => {
+                      haptic('medium')
+                      onAdd(dish.id)
+                    }}
                   >
                     {strings.heroAdd}
                   </Button>
@@ -1575,7 +1643,10 @@ function MenuView({ shownDishes, activeFilters, onFilters, onClear, onDish, onCh
       />
 
       <section className="chef-feature" aria-labelledby="chef-feature-title">
-        <button className="chef-feature-card" type="button" onClick={onChef}>
+        <button className="chef-feature-card" type="button" onClick={() => {
+          haptic('medium')
+          onChef()
+        }}>
           <img alt="" className="chef-feature-image" src={chefProfile.image} />
           <span className="chef-feature-scrim" aria-hidden="true" />
           <span className="chef-feature-copy">
@@ -1586,7 +1657,10 @@ function MenuView({ shownDishes, activeFilters, onFilters, onClear, onDish, onCh
         </button>
       </section>
 
-      <section className="discovery-banner" onClick={onChoose}>
+      <section className="discovery-banner" onClick={() => {
+        haptic('medium')
+        onChoose()
+      }}>
         <div className="discovery-banner-content">
           <div className="discovery-banner-copy">
             <h3>{locale === 'FR' ? 'Besoin d\'inspiration?' : "Find your next favorite"}</h3>
@@ -1614,7 +1688,10 @@ function MenuView({ shownDishes, activeFilters, onFilters, onClear, onDish, onCh
           selectedKeys={activeFilters}
           selectionMode="multiple"
           size="sm"
-          onSelectionChange={(keys) => onFilters(Array.from(keys) as Tag[])}
+          onSelectionChange={(keys) => {
+            haptic('light')
+            onFilters(Array.from(keys) as Tag[])
+          }}
         >
           {filterTags.map((tag) => (
             <ToggleButton className="filter-chip" id={tag} key={tag}>
@@ -1624,7 +1701,10 @@ function MenuView({ shownDishes, activeFilters, onFilters, onClear, onDish, onCh
           ))}
         </ToggleButtonGroup>
         {activeFilters.length > 0 && (
-          <Button size="sm" variant="ghost" onPress={onClear}>{strings.clearAll}</Button>
+          <Button size="sm" variant="ghost" onPress={() => {
+            haptic('light')
+            onClear()
+          }}>{strings.clearAll}</Button>
         )}
       </div>
 
@@ -1636,7 +1716,10 @@ function MenuView({ shownDishes, activeFilters, onFilters, onClear, onDish, onCh
           <Separator />
           {categories.map((name) => (
             <div className="category-link" key={name}>
-              <Button fullWidth variant="ghost" onPress={() => document.getElementById(categoryId(name))?.scrollIntoView({ behavior: 'smooth' })}>
+              <Button fullWidth variant="ghost" onPress={() => {
+                haptic('light')
+                document.getElementById(categoryId(name))?.scrollIntoView({ behavior: 'smooth' })
+              }}>
                 <span className="category-link-copy">
                   <strong>{localize(categoryLabels[name], locale)}</strong>
                   <span>{localize(categoryCues[name], locale)} · {dishes.filter((dish) => dish.category === name).length}</span>
@@ -1673,7 +1756,10 @@ function MenuView({ shownDishes, activeFilters, onFilters, onClear, onDish, onCh
 function DishRow({ dish, locale, onPress, why, unavailableLabel }: { dish: Dish; locale: Locale; onPress: () => void; why?: string; unavailableLabel?: string }) {
   return (
     <div className="dish-card-wrap">
-      <Button className="dish-row-button" fullWidth isDisabled={!dish.available} variant="ghost" onPress={onPress}>
+      <Button className="dish-row-button" fullWidth isDisabled={!dish.available} variant="ghost" onPress={() => {
+        haptic('medium')
+        onPress()
+      }}>
         <span className="dish-row-content">
           <span className="dish-copy">
             <Tags tags={dish.tags} locale={locale} max={2} />
@@ -1788,7 +1874,10 @@ function DetailView({ dish, customization, saved, onBack, onSave, onCustomizatio
                   aria-label={localize(group.title, locale)}
                   className="customization-radio-group"
                   value={customization.baseOptions[group.id]}
-                  onChange={(optionId) => selectBaseOption(group.id, optionId)}
+                  onChange={(optionId) => {
+                    haptic('light')
+                    selectBaseOption(group.id, optionId)
+                  }}
                 >
                   {group.options.map((option) => (
                     <Radio className="customization-radio" key={option.id} value={option.id}>
@@ -1833,7 +1922,10 @@ function DetailView({ dish, customization, saved, onBack, onSave, onCustomizatio
                           checked={checked}
                           className="add-on-checkbox"
                           type="checkbox"
-                          onChange={() => toggleAddOn(group.id, addOn.id)}
+                          onChange={() => {
+                            haptic('light')
+                            toggleAddOn(group.id, addOn.id)
+                          }}
                         />
                       </label>
                     )
@@ -1851,7 +1943,10 @@ function DetailView({ dish, customization, saved, onBack, onSave, onCustomizatio
             <Card.Title>{strings.pairingTitle}</Card.Title>
           </Card.Header>
           <Card.Content>
-            <Button fullWidth variant="ghost" onPress={() => onPairing(pair)}>
+            <Button fullWidth variant="ghost" onPress={() => {
+              haptic('medium')
+              onPairing(pair)
+            }}>
               <span className="pairing-content">
                 <DishArt dish={pair} locale={locale} />
                 <span>
@@ -1866,7 +1961,10 @@ function DetailView({ dish, customization, saved, onBack, onSave, onCustomizatio
       )}
 
       <div className="sticky-action">
-        <Button fullWidth isDisabled={!dish.available} onPress={onSave}>
+        <Button fullWidth isDisabled={!dish.available} onPress={() => {
+          haptic('heavy')
+          onSave()
+        }}>
           {saved ? strings.saved : `${strings.add.split(' ')[0]} · ${money(totalPrice)}`}
         </Button>
       </div>
@@ -1892,7 +1990,10 @@ function ChooseView({ answers, question, recommendations, onAnswer, onRestart, o
   if (question >= 4) {
     return (
       <section className="view choose-view">
-        <button className="choose-close-button" type="button" onClick={onClose} aria-label="Close">
+        <button className="choose-close-button" type="button" onClick={() => {
+          haptic('light')
+          onClose()
+        }} aria-label="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M18 6l-12 12m0-12l12 12" />
           </svg>
@@ -1900,7 +2001,10 @@ function ChooseView({ answers, question, recommendations, onAnswer, onRestart, o
         <span className="section-label">{strings.resultsLabel}</span>
         <h2>{strings.resultsTitle}</h2>
         <p className="muted">{strings.resultsBody}</p>
-        <Link onPress={onRestart}>{strings.changeAnswers}</Link>
+        <Link onPress={() => {
+          haptic('light')
+          onRestart()
+        }}>{strings.changeAnswers}</Link>
         <div className="recommendations">
           {recommendations.map((dish) => (
             <DishRow
@@ -1913,8 +2017,14 @@ function ChooseView({ answers, question, recommendations, onAnswer, onRestart, o
           ))}
         </div>
         <div className="action-grid">
-          <Button fullWidth variant="outline" onPress={onRestart}>{strings.startAgain}</Button>
-          <Button fullWidth onPress={onSaveAll}>{strings.saveAll}</Button>
+          <Button fullWidth variant="outline" onPress={() => {
+            haptic('light')
+            onRestart()
+          }}>{strings.startAgain}</Button>
+          <Button fullWidth onPress={() => {
+            haptic('heavy')
+            onSaveAll()
+          }}>{strings.saveAll}</Button>
         </div>
       </section>
     )
@@ -1924,7 +2034,10 @@ function ChooseView({ answers, question, recommendations, onAnswer, onRestart, o
 
   return (
     <section className="view choose-view">
-      <button className="choose-close-button" type="button" onClick={onClose} aria-label="Close">
+      <button className="choose-close-button" type="button" onClick={() => {
+        haptic('light')
+        onClose()
+      }} aria-label="Close">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M18 6l-12 12m0-12l12 12" />
         </svg>
@@ -1940,13 +2053,19 @@ function ChooseView({ answers, question, recommendations, onAnswer, onRestart, o
       <h2>{step.title}</h2>
       <p className="muted">{step.help}</p>
       {question === 0 && (
-        <Button size="sm" variant="ghost" onPress={onBrowseMoods}>{strings.browseByMood}</Button>
+        <Button size="sm" variant="ghost" onPress={() => {
+          haptic('light')
+          onBrowseMoods()
+        }}>{strings.browseByMood}</Button>
       )}
       <div className="answers-wrap">
         <RadioGroup
           aria-label={step.title}
           value={answers[step.key]}
-          onChange={(value) => onAnswer(step.key, value as Hunger | Mood | DietaryPreference | TimePreference)}
+          onChange={(value) => {
+            haptic('light')
+            onAnswer(step.key, value as Hunger | Mood | DietaryPreference | TimePreference)
+          }}
         >
           {step.choices.map((choice) => (
             <Radio key={choice.value} value={choice.value}>
@@ -1980,7 +2099,10 @@ function MoodView({ onMood, locale, strings }: { onMood: (mood: Mood) => void; l
               <Card.Description>{countMoodItems(mood)} {locale === 'FR' ? 'articles' : 'items'}</Card.Description>
             </Card.Content>
             <Card.Footer>
-              <Button fullWidth variant="outline" onPress={() => onMood(mood)}>{strings.cards[mood].cta}</Button>
+              <Button fullWidth variant="outline" onPress={() => {
+                haptic('medium')
+                onMood(mood)
+              }}>{strings.cards[mood].cta}</Button>
             </Card.Footer>
           </Card>
         ))}
@@ -2051,7 +2173,10 @@ function ShortlistView({
                       <strong>{money(unitPrice * quantity)}</strong>
                       {quantity > 1 && <span>{quantity} x {money(unitPrice)}</span>}
                     </div>
-                    <CloseButton aria-label={strings.remove(localize(dish.name, locale))} onPress={() => onRemove(dish.id)} />
+                    <CloseButton aria-label={strings.remove(localize(dish.name, locale))} onPress={() => {
+                      haptic('light')
+                      onRemove(dish.id)
+                    }} />
                   </article>
                 </div>
               )
