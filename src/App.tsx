@@ -28,6 +28,8 @@ import {
   mostLovedDishes,
   reviewSummaryFor,
   tagLabels,
+  type AddOn,
+  type BaseOption,
   type Category,
   type Dish,
   type Locale,
@@ -46,6 +48,10 @@ type ServerMessage = {
   title: string
   description: string
   status: 'accent' | 'warning'
+}
+type DishCustomizationState = {
+  baseOptions: Record<string, string>
+  addOns: string[]
 }
 
 type MenuStrings = {
@@ -78,6 +84,12 @@ type DetailStrings = {
   carbs: string
   fat: string
   customisations: string
+  baseOptionsTitle: string
+  addOnsTitle: string
+  selectUpTo: (max: number) => string
+  required: string
+  free: string
+  totalWithCustomizations: string
   pairingTitle: string
   saved: string
   add: string
@@ -162,6 +174,7 @@ type AppCopy = {
   allergyReminder: { title: string; description: string }
   readyForServer: { title: string; description: string }
   nav: { primary: string; menu: string; choose: string; shortlist: string }
+  cart: { itemsAdded: (count: number) => string; viewCart: string }
   sourceNote: string
   menu: MenuStrings
   detail: DetailStrings
@@ -178,6 +191,11 @@ const languageMenu = [
   { id: 'ES', available: false },
 ] as const
 const meals: MealPeriod[] = ['Dinner', 'Lunch', 'Brunch']
+const mealIcons: Record<MealPeriod, string> = {
+  Brunch: 'brunch',
+  Lunch: 'lunch',
+  Dinner: 'dinner',
+}
 const mealHours: Record<MealPeriod, string> = {
   Brunch: '8am - 12pm',
   Lunch: '12pm - 4pm',
@@ -203,6 +221,43 @@ const chefProfile = {
 }
 const money = (value: number) => `CA$${value.toFixed(2)}`
 const categoryId = (category: Category) => category.toLowerCase().replace(/\s+/g, '-')
+const defaultCustomizationFor = (dish: Dish): DishCustomizationState => ({
+  baseOptions: Object.fromEntries(
+    dish.customizations?.baseOptions?.map((group) => [
+      group.id,
+      (group.options.find((option) => option.default) ?? group.options[0])?.id ?? '',
+    ]) ?? [],
+  ),
+  addOns: [],
+})
+const findBaseOption = (dish: Dish, groupId: string, optionId: string): BaseOption | undefined => (
+  dish.customizations?.baseOptions
+    ?.find((group) => group.id === groupId)
+    ?.options.find((option) => option.id === optionId)
+)
+const findAddOn = (dish: Dish, addOnId: string): AddOn | undefined => (
+  dish.customizations?.addOns
+    ?.flatMap((group) => group.addOns)
+    .find((addOn) => addOn.id === addOnId)
+)
+const calculateDishPrice = (dish: Dish, customization?: DishCustomizationState): number => {
+  const selected = customization ?? defaultCustomizationFor(dish)
+  const baseOptionTotal = Object.entries(selected.baseOptions).reduce((sum, [groupId, optionId]) => {
+    return sum + (findBaseOption(dish, groupId, optionId)?.price ?? 0)
+  }, 0)
+  const addOnTotal = selected.addOns.reduce((sum, addOnId) => sum + (findAddOn(dish, addOnId)?.price ?? 0), 0)
+  return dish.price + baseOptionTotal + addOnTotal
+}
+const isCustomizationState = (value: unknown): value is DishCustomizationState => {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as DishCustomizationState
+  return (
+    Boolean(candidate.baseOptions)
+    && typeof candidate.baseOptions === 'object'
+    && !Array.isArray(candidate.baseOptions)
+    && Array.isArray(candidate.addOns)
+  )
+}
 const filterTagIcons: Record<Tag, string> = {
   Vegan: 'leaf',
   Vegetarian: 'sprout',
@@ -259,6 +314,10 @@ const ui: Record<Locale, AppCopy> = {
       choose: 'Choose',
       shortlist: 'Shortlist',
     },
+    cart: {
+      itemsAdded: (count: number) => `${count} ${count === 1 ? 'Item' : 'Items'} added`,
+      viewCart: 'View Cart',
+    },
     sourceNote: 'Menu imported from public delivery listings. Confirm prices, allergens, availability, and nutrition with Utopia before launch.',
     menu: {
       mostOrdered: 'MOST ORDERED',
@@ -289,6 +348,12 @@ const ui: Record<Locale, AppCopy> = {
       carbs: 'carbs',
       fat: 'fat',
       customisations: 'MAKE IT YOURS',
+      baseOptionsTitle: 'Choices',
+      addOnsTitle: 'Add-ons',
+      selectUpTo: (max: number) => `Select upto ${max}`,
+      required: 'Select any 1',
+      free: 'Free',
+      totalWithCustomizations: 'Total',
       pairingTitle: 'Goes well with',
       saved: 'Saved to shortlist',
       add: 'Add to shortlist',
@@ -424,6 +489,10 @@ const ui: Record<Locale, AppCopy> = {
       choose: 'Choisir',
       shortlist: 'Liste courte',
     },
+    cart: {
+      itemsAdded: (count: number) => `${count} ${count === 1 ? 'Article ajoute' : 'Articles ajoutes'}`,
+      viewCart: 'Voir le panier',
+    },
     sourceNote: 'Menu importe a partir de listings publics de livraison. Confirmez les prix, allergenes, disponibilites et valeurs nutritives avec Utopia avant la mise en ligne.',
     menu: {
       mostOrdered: 'LES PLUS COMMANDES',
@@ -454,6 +523,12 @@ const ui: Record<Locale, AppCopy> = {
       carbs: 'glucides',
       fat: 'lipides',
       customisations: 'PERSONNALISEZ-LE',
+      baseOptionsTitle: 'Choix',
+      addOnsTitle: 'Extras',
+      selectUpTo: (max: number) => `Choisissez jusqu a ${max}`,
+      required: 'Choisissez 1',
+      free: 'Gratuit',
+      totalWithCustomizations: 'Total',
       pairingTitle: 'Se marie bien avec',
       saved: 'Ajoute a la liste courte',
       add: 'Ajouter a la liste courte',
@@ -644,6 +719,24 @@ function Icon({ name, className }: { name: string; className?: string }) {
           <path d="M8 11v9H5.5A1.5 1.5 0 0 1 4 18.5v-6A1.5 1.5 0 0 1 5.5 11H8Zm0 0 2.2-5.2A2 2 0 0 1 12 4.7c.9 0 1.6.7 1.6 1.6V9h4.2a2 2 0 0 1 2 2.3l-1 7A2 2 0 0 1 16.8 20H8" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
         </svg>
       )
+    case 'brunch':
+      return (
+        <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 10h8v4a4 4 0 0 1-8 0v-4Zm8 1h1.5a2 2 0 0 1 0 4H15M6 19h11M6.5 6.5c.7.6.7 1.3 0 1.9m4-1.9c.7.6.7 1.3 0 1.9m4-1.9c.7.6.7 1.3 0 1.9" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+        </svg>
+      )
+    case 'lunch':
+      return (
+        <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 6.5v-2m0 15v-2m5.3-10.8 1.4-1.4M5.3 18.7l1.4-1.4m10.6 0 1.4 1.4M5.3 5.3l1.4 1.4M4.5 12h2m11 0h2M15.5 12a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+        </svg>
+      )
+    case 'dinner':
+      return (
+        <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M16.5 18.5A7 7 0 0 1 9.4 7.1 6 6 0 1 0 16.5 18.5ZM17 5l.5 1.5L19 7l-1.5.5L17 9l-.5-1.5L15 7l1.5-.5L17 5Zm3 6 .4 1 .9.4-.9.3-.4 1-.3-1-.9-.3.9-.4.3-1Z" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+        </svg>
+      )
     case 'spark':
     default:
       return (
@@ -719,6 +812,19 @@ export function App() {
     }
     return {}
   })
+  const [dishCustomizations, setDishCustomizations] = useState<Record<string, DishCustomizationState>>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('utopia-dish-customizations') || '{}')
+      if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+        return Object.fromEntries(
+          Object.entries(saved).filter((entry): entry is [string, DishCustomizationState] => isCustomizationState(entry[1])),
+        )
+      }
+    } catch {
+      return {}
+    }
+    return {}
+  })
   const [answers, setAnswers] = useState<{ hunger?: Hunger; mood?: Mood; dietary?: DietaryPreference; time?: TimePreference }>({})
   const [question, setQuestion] = useState(0)
   const [serverMessage, setServerMessage] = useState<ServerMessage | null>(null)
@@ -728,7 +834,12 @@ export function App() {
   const copy = ui[language]
 
   useEffect(() => localStorage.setItem('utopia-shortlist', JSON.stringify(quantities)), [quantities])
+  useEffect(() => localStorage.setItem('utopia-dish-customizations', JSON.stringify(dishCustomizations)), [dishCustomizations])
   useEffect(() => localStorage.setItem('utopia-language', language), [language])
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', meal === 'Dinner')
+  }, [meal])
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -771,11 +882,22 @@ export function App() {
     navigate('detail')
   }
 
+  const ensureDishCustomization = (id: string) => {
+    const dish = dishes.find((item) => item.id === id)
+    if (!dish?.customizations) return
+    setDishCustomizations((current) => current[id] ? current : { ...current, [id]: defaultCustomizationFor(dish) })
+  }
+
   const setQuantity = (id: string, next: number) => {
     setQuantities((current) => {
       const updated = { ...current }
-      if (next <= 0) delete updated[id]
-      else updated[id] = next
+      if (next <= 0) {
+        delete updated[id]
+        setDishCustomizations(({ [id]: _removed, ...rest }) => rest)
+      } else {
+        updated[id] = next
+        ensureDishCustomization(id)
+      }
       return updated
     })
   }
@@ -784,10 +906,16 @@ export function App() {
     if (current[id]) {
       const updated = { ...current }
       delete updated[id]
+      setDishCustomizations(({ [id]: _removed, ...rest }) => rest)
       return updated
     }
+    ensureDishCustomization(id)
     return { ...current, [id]: 1 }
   })
+
+  const updateDishCustomization = (id: string, customization: DishCustomizationState) => {
+    setDishCustomizations((current) => ({ ...current, [id]: customization }))
+  }
 
   const recommendations = useMemo(() => {
     return dishes
@@ -897,7 +1025,10 @@ export function App() {
                   <ListBox aria-label={copy.mealOptions}>
                     {meals.map((option) => (
                       <ListBox.Item className="meal-option" id={option} key={option} textValue={copy.meals[option]}>
-                        <Label>{copy.meals[option]}</Label>
+                        <span className="meal-option-label">
+                          <Icon className="meal-option-icon" name={mealIcons[option]} />
+                          <Label>{copy.meals[option]}</Label>
+                        </span>
                         <span className="meal-hours">{mealHours[option]}</span>
                       </ListBox.Item>
                     ))}
@@ -955,6 +1086,7 @@ export function App() {
             locale={language}
             onAdd={(id) => setQuantity(id, 1)}
             onChef={() => navigate('chef')}
+            onChoose={() => navigate('choose')}
             onClear={() => setActiveFilters([])}
             onDish={chooseDish}
             onFilters={setActiveFilters}
@@ -975,6 +1107,7 @@ export function App() {
         {view === 'detail' && selected && (
           <DetailView
             dish={selected}
+            customization={dishCustomizations[selected.id] ?? defaultCustomizationFor(selected)}
             locale={language}
             onAllergy={() => showServerMessage({
               title: copy.allergyReminder.title,
@@ -984,6 +1117,7 @@ export function App() {
             onBack={() => navigate('menu')}
             onPairing={chooseDish}
             onSave={() => toggleShortlist(selected.id)}
+            onCustomizationChange={(customization) => updateDishCustomization(selected.id, customization)}
             saved={Boolean(quantities[selected.id])}
             strings={copy.detail}
           />
@@ -1002,7 +1136,17 @@ export function App() {
               setAnswers({})
               setQuestion(0)
             }}
-            onSaveAll={() => setQuantities(Object.fromEntries(recommendations.map(({ dish }) => [dish.id, 1])))}
+            onSaveAll={() => {
+              setQuantities(Object.fromEntries(recommendations.map(({ dish }) => [dish.id, 1])))
+              setDishCustomizations((current) => ({
+                ...current,
+                ...Object.fromEntries(
+                  recommendations
+                    .map(({ dish }) => dish.customizations ? [dish.id, current[dish.id] ?? defaultCustomizationFor(dish)] : null)
+                    .filter((entry): entry is [string, DishCustomizationState] => entry !== null),
+                ),
+              }))
+            }}
             question={question}
             recommendations={recommendations.map((entry) => entry.dish)}
             strings={copy.choose}
@@ -1030,6 +1174,7 @@ export function App() {
         {view === 'shortlist' && (
           <ShortlistView
             items={shortlistItems}
+            customizations={dishCustomizations}
             locale={language}
             quantities={quantities}
             onRemove={toggleShortlist}
@@ -1040,6 +1185,16 @@ export function App() {
             })}
             strings={copy.shortlist}
           />
+        )}
+
+        {shortlistCount > 0 && view !== 'shortlist' && view !== 'search' && view !== 'chef' && (
+          <button className="cart-banner" type="button" onClick={() => navigate('shortlist')}>
+            <span className="cart-banner-text">{copy.cart.itemsAdded(shortlistCount)}</span>
+            <span className="cart-banner-button">
+              {copy.cart.viewCart}
+              <span aria-hidden="true">→</span>
+            </span>
+          </button>
         )}
 
         {view !== 'search' && view !== 'chef' && (
@@ -1053,27 +1208,6 @@ export function App() {
           >
             <Icon className="nav-icon" name="menu" />
             <span>{copy.nav.menu}</span>
-          </Button>
-          <Button
-            className="nav-button"
-            aria-current={view === 'choose' || view === 'moods' ? 'page' : undefined}
-            size="sm"
-            variant={view === 'choose' || view === 'moods' ? 'secondary' : 'ghost'}
-            onPress={() => navigate('choose')}
-          >
-            <Icon className="nav-icon" name="magic" />
-            <span>{copy.nav.choose}</span>
-          </Button>
-          <Button
-            className="nav-button"
-            aria-current={view === 'shortlist' ? 'page' : undefined}
-            size="sm"
-            variant={view === 'shortlist' ? 'secondary' : 'ghost'}
-            onPress={() => navigate('shortlist')}
-          >
-            <Icon className="nav-icon" name="bookmark" />
-            <span>{copy.nav.shortlist}</span>
-            {shortlistCount > 0 && <Chip color="accent" size="sm">{shortlistCount}</Chip>}
           </Button>
         </nav>
         )}
@@ -1321,6 +1455,7 @@ type MenuViewProps = {
   onClear: () => void
   onDish: (dish: Dish) => void
   onChef: () => void
+  onChoose: () => void
   onAdd: (id: string) => void
   onQuantity: (id: string, next: number) => void
   quantities: Record<string, number>
@@ -1335,7 +1470,7 @@ const featuredPromos: Record<string, LocalizedText> = {
   'chicken-karaage': { EN: '$9 off', FR: '9 $ de rabais' },
 }
 
-function MenuView({ shownDishes, activeFilters, onFilters, onClear, onDish, onChef, onAdd, onQuantity, quantities, locale, strings, chefStrings }: MenuViewProps) {
+function MenuView({ shownDishes, activeFilters, onFilters, onClear, onDish, onChef, onChoose, onAdd, onQuantity, quantities, locale, strings, chefStrings }: MenuViewProps) {
   const featuredDishes = [
     dishes.find((dish) => dish.id === 'utopia-burger') ?? dishes[0],
     dishes.find((dish) => dish.id === 'poutine') ?? dishes[1],
@@ -1404,6 +1539,27 @@ function MenuView({ shownDishes, activeFilters, onFilters, onClear, onDish, onCh
             <span>{chefStrings.sectionBody}</span>
           </span>
         </button>
+      </section>
+
+      <section className="discovery-banner" onClick={onChoose}>
+        <div className="discovery-banner-content">
+          <div className="discovery-banner-copy">
+            <h3>{locale === 'FR' ? 'Vous hésitez?' : "Can't decide?"}</h3>
+            <p>
+              {locale === 'FR'
+                ? 'Répondez à quelques questions rapides et découvrez les plats parfaits pour vous'
+                : "Answer a few quick questions and we'll recommend the perfect dishes for your mood"}
+            </p>
+            <span className="discovery-banner-cta">
+              {locale === 'FR' ? 'Découvrir →' : 'Get started →'}
+            </span>
+          </div>
+          <div className="discovery-banner-art" aria-hidden="true">
+            <span className="discovery-sparkle discovery-sparkle-1">✦</span>
+            <span className="discovery-sparkle discovery-sparkle-2">✦</span>
+            <span className="discovery-sparkle discovery-sparkle-3">✨</span>
+          </div>
+        </div>
       </section>
 
       <div className="filter-row">
@@ -1491,18 +1647,43 @@ function DishRow({ dish, locale, onPress, why, unavailableLabel }: { dish: Dish;
 
 type DetailViewProps = {
   dish: Dish
+  customization: DishCustomizationState
   saved: boolean
   onBack: () => void
   onSave: () => void
+  onCustomizationChange: (customization: DishCustomizationState) => void
   onPairing: (dish: Dish) => void
   onAllergy: () => void
   locale: Locale
   strings: DetailStrings
 }
 
-function DetailView({ dish, saved, onBack, onSave, onPairing, onAllergy, locale, strings }: DetailViewProps) {
+function DetailView({ dish, customization, saved, onBack, onSave, onCustomizationChange, onPairing, onAllergy, locale, strings }: DetailViewProps) {
   const pair = dish.pairing ? dishes.find((item) => item.id === dish.pairing?.id) : undefined
   const review = reviewSummaryFor(dish)
+  const selectedAddOns = new Set(customization.addOns)
+  const totalPrice = calculateDishPrice(dish, customization)
+
+  const selectBaseOption = (groupId: string, optionId: string) => {
+    onCustomizationChange({
+      ...customization,
+      baseOptions: { ...customization.baseOptions, [groupId]: optionId },
+    })
+  }
+
+  const toggleAddOn = (groupId: string, addOnId: string) => {
+    const group = dish.customizations?.addOns?.find((item) => item.id === groupId)
+    const alreadySelected = selectedAddOns.has(addOnId)
+    const groupSelectedCount = group?.addOns.filter((addOn) => selectedAddOns.has(addOn.id)).length ?? 0
+    if (!alreadySelected && group?.maxSelections && groupSelectedCount >= group.maxSelections) return
+    onCustomizationChange({
+      ...customization,
+      addOns: alreadySelected
+        ? customization.addOns.filter((id) => id !== addOnId)
+        : [...customization.addOns, addOnId],
+    })
+  }
+
   return (
     <section className="view detail-view">
       <Button size="sm" variant="ghost" onPress={onBack}>← {strings.back}</Button>
@@ -1513,7 +1694,7 @@ function DetailView({ dish, saved, onBack, onSave, onPairing, onAllergy, locale,
           <span className="section-label">{localize(categoryLabels[dish.category], locale).toUpperCase()}</span>
           <h2>{localize(dish.name, locale)}</h2>
         </div>
-        <strong>{money(dish.price)}</strong>
+        <strong>{money(totalPrice)}</strong>
       </div>
       <p className="detail-summary">{localize(dish.summary, locale)}</p>
       <Tags tags={dish.tags} locale={locale} />
@@ -1548,15 +1729,76 @@ function DetailView({ dish, saved, onBack, onSave, onPairing, onAllergy, locale,
         <p className="review-summary-source">{strings.reviewSource}</p>
       </article>
 
-      {dish.customisations && (
+      {dish.customizations && (
         <>
           <Separator />
           <section className="detail-block customisations">
             <span className="section-label">{strings.customisations}</span>
-            {dish.customisations.map((item) => (
-              <Button fullWidth key={localize(item, locale)} variant="outline">
-                {localize(item, locale)} <span aria-hidden="true">→</span>
-              </Button>
+            {dish.customizations.baseOptions?.map((group) => (
+              <section className="customization-card" key={group.id}>
+                <div className="customization-heading">
+                  <div>
+                    <h3>{localize(group.title, locale)}</h3>
+                    <p>{group.subtitle ? localize(group.subtitle, locale) : strings.required}</p>
+                  </div>
+                  {group.required && <span>{strings.required}</span>}
+                </div>
+                <RadioGroup
+                  aria-label={localize(group.title, locale)}
+                  className="customization-radio-group"
+                  value={customization.baseOptions[group.id]}
+                  onChange={(optionId) => selectBaseOption(group.id, optionId)}
+                >
+                  {group.options.map((option) => (
+                    <Radio className="customization-radio" key={option.id} value={option.id}>
+                      <Radio.Content>
+                        <Radio.Control>
+                          <Radio.Indicator />
+                        </Radio.Control>
+                        <span className="customization-option-copy">
+                          <span>{localize(option.label, locale)}</span>
+                          {option.price ? <small>+ {money(option.price)}</small> : null}
+                        </span>
+                      </Radio.Content>
+                    </Radio>
+                  ))}
+                </RadioGroup>
+              </section>
+            ))}
+            {dish.customizations.addOns?.map((group) => (
+              <section className="customization-card" key={group.id}>
+                <div className="customization-heading">
+                  <div>
+                    <h3>{localize(group.title, locale)}</h3>
+                    <p>{localize(group.subtitle, locale)}</p>
+                  </div>
+                  {group.maxSelections && <span>{strings.selectUpTo(group.maxSelections)}</span>}
+                </div>
+                <div className="add-on-list">
+                  {group.addOns.map((addOn) => {
+                    const checked = selectedAddOns.has(addOn.id)
+                    return (
+                      <label className="add-on-row" key={addOn.id}>
+                        <span className="add-on-dietary" data-kind={addOn.dietary?.includes('Vegan') || addOn.dietary?.includes('Vegetarian') ? 'veg' : 'protein'} aria-hidden="true">
+                          <span />
+                        </span>
+                        <span className="add-on-copy">
+                          {addOn.badge && <strong>{localize(addOn.badge, locale)}</strong>}
+                          <span>{localize(addOn.label, locale)}</span>
+                        </span>
+                        <span className="add-on-price">{addOn.price ? `+ ${money(addOn.price)}` : strings.free}</span>
+                        <input
+                          aria-label={localize(addOn.label, locale)}
+                          checked={checked}
+                          className="add-on-checkbox"
+                          type="checkbox"
+                          onChange={() => toggleAddOn(group.id, addOn.id)}
+                        />
+                      </label>
+                    )
+                  })}
+                </div>
+              </section>
             ))}
           </section>
         </>
@@ -1583,6 +1825,10 @@ function DetailView({ dish, saved, onBack, onSave, onPairing, onAllergy, locale,
       )}
 
       <div className="sticky-action">
+        <div className="sticky-total">
+          <span>{strings.totalWithCustomizations}</span>
+          <strong>{money(totalPrice)}</strong>
+        </div>
         <Button fullWidth isDisabled={!dish.available} onPress={onSave}>
           {saved ? strings.saved : strings.add}
         </Button>
@@ -1695,8 +1941,27 @@ function MoodView({ onMood, locale, strings }: { onMood: (mood: Mood) => void; l
   )
 }
 
-function ShortlistView({ items, quantities, onRemove, onServer, locale, strings }: { items: Dish[]; quantities: Record<string, number>; onRemove: (id: string) => void; onServer: () => void; locale: Locale; strings: ShortlistStrings }) {
-  const total = items.reduce((sum, dish) => sum + dish.price * (quantities[dish.id] ?? 1), 0)
+function ShortlistView({
+  items,
+  quantities,
+  customizations,
+  onRemove,
+  onServer,
+  locale,
+  strings,
+}: {
+  items: Dish[]
+  quantities: Record<string, number>
+  customizations: Record<string, DishCustomizationState>
+  onRemove: (id: string) => void
+  onServer: () => void
+  locale: Locale
+  strings: ShortlistStrings
+}) {
+  const total = items.reduce((sum, dish) => {
+    const quantity = quantities[dish.id] ?? 1
+    return sum + calculateDishPrice(dish, customizations[dish.id]) * quantity
+  }, 0)
   return (
     <section className="view shortlist-view">
       <span className="section-label">{strings.label}</span>
@@ -1705,21 +1970,45 @@ function ShortlistView({ items, quantities, onRemove, onServer, locale, strings 
       {items.length ? (
         <>
           <div className="shortlist-items">
-            {items.map((dish) => (
-              <div key={dish.id}>
-                <Separator />
-                <article>
-                  <DishArt dish={dish} locale={locale} />
-                  <div>
-                    <strong>{localize(dish.name, locale)}</strong>
-                    <p>{localize(dish.summary, locale)}</p>
-                    <Chip color="success" size="sm" variant="soft">{strings.orderReady}</Chip>
-                  </div>
-                  <strong>{money(dish.price)}</strong>
-                  <CloseButton aria-label={strings.remove(localize(dish.name, locale))} onPress={() => onRemove(dish.id)} />
-                </article>
-              </div>
-            ))}
+            {items.map((dish) => {
+              const customization = customizations[dish.id] ?? defaultCustomizationFor(dish)
+              const quantity = quantities[dish.id] ?? 1
+              const baseSelections = dish.customizations?.baseOptions
+                ?.map((group) => findBaseOption(dish, group.id, customization.baseOptions[group.id]))
+                .filter((option): option is BaseOption => Boolean(option)) ?? []
+              const addOns = customization.addOns
+                .map((addOnId) => findAddOn(dish, addOnId))
+                .filter((addOn): addOn is AddOn => Boolean(addOn))
+              const unitPrice = calculateDishPrice(dish, customization)
+              return (
+                <div key={dish.id}>
+                  <Separator />
+                  <article>
+                    <DishArt dish={dish} locale={locale} />
+                    <div>
+                      <strong>{localize(dish.name, locale)}</strong>
+                      <p>{localize(dish.summary, locale)}</p>
+                      {(baseSelections.length > 0 || addOns.length > 0) && (
+                        <div className="shortlist-customizations">
+                          {baseSelections.length > 0 && (
+                            <span>{baseSelections.map((option) => localize(option.label, locale)).join(', ')}</span>
+                          )}
+                          {addOns.map((addOn) => (
+                            <span key={addOn.id}>+ {localize(addOn.label, locale)} ({addOn.price ? money(addOn.price) : locale === 'FR' ? 'Gratuit' : 'Free'})</span>
+                          ))}
+                        </div>
+                      )}
+                      <Chip color="success" size="sm" variant="soft">{strings.orderReady}</Chip>
+                    </div>
+                    <div className="shortlist-price">
+                      <strong>{money(unitPrice * quantity)}</strong>
+                      {quantity > 1 && <span>{quantity} x {money(unitPrice)}</span>}
+                    </div>
+                    <CloseButton aria-label={strings.remove(localize(dish.name, locale))} onPress={() => onRemove(dish.id)} />
+                  </article>
+                </div>
+              )
+            })}
           </div>
           <Separator />
           <div className="order-total">
