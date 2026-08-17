@@ -922,8 +922,8 @@ function DishRow({ dish, locale, onPress, why, unavailableLabel }: { dish: Dish;
             <strong className="dish-name">{localize(dish.name, locale)}</strong>
             <span className="dish-summary">{localize(dish.summary, locale)}</span>
             {why && <span className="dish-reason">{why}</span>}
-            <strong>{money(dish.price)}</strong>
             <Tags tags={dish.tags} locale={locale} max={2} />
+            <strong>{money(dish.price)}</strong>
             {!dish.available && unavailableLabel && <Chip color="danger" size="sm" variant="soft">{unavailableLabel}</Chip>}
           </span>
           <DishArt dish={dish} locale={locale} />

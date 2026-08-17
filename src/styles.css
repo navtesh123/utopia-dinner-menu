@@ -243,8 +243,8 @@ p {
 }
 
 .dish-art {
-  width: 3.6rem;
-  height: 3.6rem;
+  width: 7.2rem;
+  height: 6.3rem;
   display: grid;
   place-items: center;
   border-radius: 0.4rem;
@@ -257,7 +257,7 @@ p {
 }
 
 .dish-art span {
-  font-size: 1.1rem;
+  font-size: 1.5rem;
 }
 
 .dish-art.rose { background-color: #eed4de; }
@@ -378,6 +378,11 @@ p {
 .dish-row-button {
   padding: 0.9rem 0;
   border-radius: 0;
+  height: auto;
+  min-height: 6.9rem;
+  align-items: stretch;
+  justify-content: stretch;
+  white-space: normal;
 }
 
 .dish-row-content {
@@ -392,12 +397,14 @@ p {
 .dish-copy {
   min-width: 0;
   display: grid;
-  gap: 0.3rem;
+  align-content: start;
+  gap: 0.35rem;
 }
 
 .dish-name {
-  font-size: 1.02rem;
+  font-size: 1.15rem;
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .dish-summary {
@@ -407,11 +414,13 @@ p {
   line-height: 1.4;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
 }
 
 .dish-copy > strong,
 .dish-reason {
   font-size: 0.8rem;
+  line-height: 1.2;
 }
 
 .dish-reason {
@@ -422,6 +431,8 @@ p {
   display: flex;
   flex-wrap: wrap;
   gap: 0.3rem;
+  min-width: 0;
+  line-height: 1;
 }
 
 .empty {
