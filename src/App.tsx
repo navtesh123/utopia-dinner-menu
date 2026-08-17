@@ -18,18 +18,130 @@ import {
   ToggleButtonGroup,
 } from '@heroui/react'
 import { useEffect, useMemo, useState } from 'react'
-import { categories, dishes, filterTags, type Category, type Dish, type Tag } from './data'
+import {
+  categories,
+  categoryCues,
+  categoryLabels,
+  dishes,
+  filterTags,
+  localize,
+  tagLabels,
+  type Category,
+  type Dish,
+  type Locale,
+  type Tag,
+} from './data'
 
 type View = 'menu' | 'choose' | 'moods' | 'shortlist' | 'detail'
 type Mood = 'Fresh' | 'Comforting' | 'Bold' | 'Familiar'
-type Language = 'EN' | 'FR' | 'ES'
+type Hunger = 'Light' | 'Proper' | 'Feast'
+type TimePreference = 'Quick' | 'No rush'
+type DietaryPreference = Tag | 'No preference'
 type ServerMessage = {
   title: string
   description: string
   status: 'accent' | 'warning'
 }
 
-const languages: Language[] = ['EN', 'FR', 'ES']
+type MenuStrings = {
+  mostOrdered: string
+  heroTitle: string
+  heroBody: string
+  sourceLink: string
+  searchLabel: string
+  searchPlaceholder: string
+  filtersLabel: string
+  clearAll: string
+  browseMenu: string
+  helpMeChoose: string
+  exploreMenu: string
+  itemCount: (count: number) => string
+  empty: string
+  unavailable: string
+}
+
+type DetailStrings = {
+  back: string
+  menuDescription: string
+  dietary: string
+  dietaryBody: string
+  speakToServer: string
+  nutrition: string
+  protein: string
+  carbs: string
+  fat: string
+  customisations: string
+  pairingTitle: string
+  saved: string
+  add: string
+}
+
+type ChooseStep = {
+  key: 'hunger' | 'mood' | 'dietary' | 'time'
+  title: string
+  help: string
+  choices: { value: string; label: string }[]
+}
+
+type ChooseStrings = {
+  introLabel: string
+  progress: (current: number, total: number) => string
+  resultsLabel: string
+  resultsTitle: string
+  resultsBody: string
+  changeAnswers: string
+  startAgain: string
+  saveAll: string
+  browseByMood: string
+  privacy: string
+  whyPrefix: string
+  whyQuick: string
+  whyVegan: string
+  whyFallback: string
+  steps: ChooseStep[]
+}
+
+type MoodStrings = {
+  label: string
+  title: string
+  body: string
+  cards: Record<Mood, { title: string; cta: string }>
+}
+
+type ShortlistStrings = {
+  label: string
+  title: string
+  body: string
+  orderReady: string
+  remove: (name: string) => string
+  totalLabel: string
+  totalNote: string
+  alertTitle: string
+  alertBody: string
+  showToServer: string
+  emptyTitle: string
+  emptyBody: string
+}
+
+type AppCopy = {
+  languageLabel: string
+  languagePlaceholder: string
+  languageOptions: string
+  draftLabel: string
+  dismissMessage: string
+  allergyReminder: { title: string; description: string }
+  readyForServer: { title: string; description: string }
+  serverHelp: { title: string; description: string }
+  nav: { primary: string; menu: string; choose: string; shortlist: string; server: string }
+  sourceNote: string
+  menu: MenuStrings
+  detail: DetailStrings
+  choose: ChooseStrings
+  moods: MoodStrings
+  shortlist: ShortlistStrings
+}
+
+const languages: Locale[] = ['EN', 'FR']
 const money = (value: number) => `CA$${value.toFixed(2)}`
 const categoryId = (category: Category) => category.toLowerCase().replace(/\s+/g, '-')
 const filterTagIcons: Record<Tag, string> = {
@@ -44,6 +156,291 @@ const filterTagIcons: Record<Tag, string> = {
   Shareable: 'group',
   Kids: 'smile',
   Comforting: 'spark',
+}
+
+const moodItems: Mood[] = ['Fresh', 'Comforting', 'Bold', 'Familiar']
+const heartyCategories: Category[] = ['Burritos', 'Burgers', 'Sandwiches', 'Brunch']
+
+const ui: Record<Locale, AppCopy> = {
+  EN: {
+    languageLabel: 'Language selector',
+    languagePlaceholder: 'Language',
+    languageOptions: 'Language options',
+    draftLabel: 'public menu draft',
+    dismissMessage: 'Dismiss message',
+    allergyReminder: {
+      title: 'Allergy reminder',
+      description: 'Please speak to your server about ingredients and cross-contamination before ordering.',
+    },
+    readyForServer: {
+      title: 'Ready for your server',
+      description: 'Show this shortlist to your server when you are ready to order.',
+    },
+    serverHelp: {
+      title: 'Your server can help',
+      description: 'Please ask your server. They will be happy to help.',
+    },
+    nav: {
+      primary: 'Primary navigation',
+      menu: 'Menu',
+      choose: 'Choose',
+      shortlist: 'Shortlist',
+      server: 'Server',
+    },
+    sourceNote: 'Menu imported from public delivery listings. Confirm prices, allergens, availability, and nutrition with Utopia before launch.',
+    menu: {
+      mostOrdered: 'MOST ORDERED',
+      heroTitle: 'Burritos, burgers, brunch and comfort plates.',
+      heroBody: 'Built from the public Utopia Cafe & Grill menu for the first working QR prototype.',
+      sourceLink: 'View source note',
+      searchLabel: 'Search the menu',
+      searchPlaceholder: 'Search the menu',
+      filtersLabel: 'Menu filters',
+      clearAll: 'Clear all',
+      browseMenu: 'Browse menu',
+      helpMeChoose: 'Help me choose',
+      exploreMenu: 'EXPLORE MENU',
+      itemCount: (count: number) => `${count} items`,
+      empty: 'No items match these filters. Try clearing one.',
+      unavailable: 'Unavailable today',
+    },
+    detail: {
+      back: 'Menu',
+      menuDescription: 'MENU DESCRIPTION',
+      dietary: 'DIETARY & ALLERGY',
+      dietaryBody: 'Dietary tags are interpreted from public menu text and must be checked with the restaurant before launch.',
+      speakToServer: 'Please speak to your server about allergies',
+      nutrition: 'ESTIMATED NUTRITION',
+      protein: 'protein',
+      carbs: 'carbs',
+      fat: 'fat',
+      customisations: 'MAKE IT YOURS',
+      pairingTitle: 'Goes well with',
+      saved: 'Saved to shortlist',
+      add: 'Add to shortlist',
+    },
+    choose: {
+      introLabel: 'FIND MY PLATE',
+      progress: (current: number, total: number) => `Question ${current} of ${total}`,
+      resultsLabel: 'FIND MY PLATE · YOUR MATCHES',
+      resultsTitle: 'Three plates that match what you asked for',
+      resultsBody: 'Curated from menu facts. No personal data is saved.',
+      changeAnswers: 'Change answers',
+      startAgain: 'Start again',
+      saveAll: 'Save all three',
+      browseByMood: 'Browse by mood instead',
+      privacy: 'No sign-in. Nothing is saved after you leave, except your shortlist on this device.',
+      whyPrefix: 'Why it fits',
+      whyQuick: 'ready quickly',
+      whyVegan: 'plant-powered',
+      whyFallback: 'made for tonight',
+      steps: [
+        {
+          key: 'hunger' as const,
+          title: 'How hungry are you?',
+          help: 'There is no wrong answer. You can change it later.',
+          choices: [
+            { value: 'Light' as Hunger, label: 'Light' },
+            { value: 'Proper' as Hunger, label: 'Proper' },
+            { value: 'Feast' as Hunger, label: 'Feast' },
+          ],
+        },
+        {
+          key: 'mood' as const,
+          title: 'What sounds good right now?',
+          help: 'Pick the one that fits. You can change it later.',
+          choices: moodItems.map((value) => ({ value, label: value })),
+        },
+        {
+          key: 'dietary' as const,
+          title: 'Anything we should work around?',
+          help: 'We only show tags interpreted from the public menu.',
+          choices: [
+            { value: 'Vegan' as DietaryPreference, label: 'Vegan' },
+            { value: 'Vegetarian' as DietaryPreference, label: 'Vegetarian' },
+            { value: 'Gluten-free' as DietaryPreference, label: 'Gluten-free' },
+            { value: 'No preference' as DietaryPreference, label: 'No preference' },
+          ],
+        },
+        {
+          key: 'time' as const,
+          title: 'How much time do you have?',
+          help: 'We will prioritise dishes ready sooner.',
+          choices: [
+            { value: 'Quick' as TimePreference, label: 'Quick' },
+            { value: 'No rush' as TimePreference, label: 'No rush' },
+          ],
+        },
+      ],
+    },
+    moods: {
+      label: 'BROWSE BY MOOD',
+      title: 'What sounds right, right now?',
+      body: 'No questions, no data. Just a more intuitive way to browse.',
+      cards: {
+        Fresh: { title: 'Bright & fresh', cta: 'Choose Fresh' },
+        Comforting: { title: 'Big comfort', cta: 'Choose Comforting' },
+        Bold: { title: 'Spicy adventure', cta: 'Choose Bold' },
+        Familiar: { title: 'Something familiar', cta: 'Choose Familiar' },
+      },
+    },
+    shortlist: {
+      label: 'YOUR SHORTLIST',
+      title: 'Ready to order',
+      body: 'Show this to your server. Nothing is sent to the kitchen.',
+      orderReady: 'Order-ready',
+      remove: (name: string) => `Remove ${name}`,
+      totalLabel: 'Order-ready items',
+      totalNote: 'Prices are draft values from public listings.',
+      alertTitle: 'Note for the server',
+      alertBody: 'Ask about allergy options before ordering.',
+      showToServer: 'Show to server',
+      emptyTitle: 'Your shortlist is empty',
+      emptyBody: 'Save dishes to keep a calm, order-ready list.',
+    },
+  },
+  FR: {
+    languageLabel: 'Selecteur de langue',
+    languagePlaceholder: 'Langue',
+    languageOptions: 'Options de langue',
+    draftLabel: 'ebauche de menu public',
+    dismissMessage: 'Fermer le message',
+    allergyReminder: {
+      title: 'Rappel allergies',
+      description: 'Veuillez parler a votre serveur des ingredients et des risques de contamination croisee avant de commander.',
+    },
+    readyForServer: {
+      title: 'Pret pour votre serveur',
+      description: 'Montrez cette liste courte a votre serveur lorsque vous etes pret a commander.',
+    },
+    serverHelp: {
+      title: 'Votre serveur peut aider',
+      description: 'Demandez a votre serveur. Il sera heureux de vous aider.',
+    },
+    nav: {
+      primary: 'Navigation principale',
+      menu: 'Menu',
+      choose: 'Choisir',
+      shortlist: 'Liste courte',
+      server: 'Serveur',
+    },
+    sourceNote: 'Menu importe a partir de listings publics de livraison. Confirmez les prix, allergenes, disponibilites et valeurs nutritives avec Utopia avant la mise en ligne.',
+    menu: {
+      mostOrdered: 'LES PLUS COMMANDES',
+      heroTitle: 'Burritos, burgers, brunch et assiettes reconfortantes.',
+      heroBody: 'Construit a partir du menu public de Utopia Cafe & Grill pour le premier prototype QR fonctionnel.',
+      sourceLink: 'Voir la note source',
+      searchLabel: 'Rechercher dans le menu',
+      searchPlaceholder: 'Rechercher dans le menu',
+      filtersLabel: 'Filtres du menu',
+      clearAll: 'Tout effacer',
+      browseMenu: 'Parcourir le menu',
+      helpMeChoose: 'Aidez-moi a choisir',
+      exploreMenu: 'EXPLORER LE MENU',
+      itemCount: (count: number) => `${count} articles`,
+      empty: 'Aucun article ne correspond a ces filtres. Essayez d en retirer un.',
+      unavailable: 'Indisponible aujourd hui',
+    },
+    detail: {
+      back: 'Menu',
+      menuDescription: 'DESCRIPTION DU MENU',
+      dietary: 'REGIMES ET ALLERGIES',
+      dietaryBody: 'Les etiquettes alimentaires sont interpretees a partir du texte public du menu et doivent etre verifiees avec le restaurant avant le lancement.',
+      speakToServer: 'Veuillez parler a votre serveur des allergies',
+      nutrition: 'VALEURS NUTRITIVES ESTIMEES',
+      protein: 'proteines',
+      carbs: 'glucides',
+      fat: 'lipides',
+      customisations: 'PERSONNALISEZ-LE',
+      pairingTitle: 'Se marie bien avec',
+      saved: 'Ajoute a la liste courte',
+      add: 'Ajouter a la liste courte',
+    },
+    choose: {
+      introLabel: 'TROUVEZ MON ASSIETTE',
+      progress: (current: number, total: number) => `Question ${current} sur ${total}`,
+      resultsLabel: 'TROUVEZ MON ASSIETTE · VOS CHOIX',
+      resultsTitle: 'Trois assiettes qui correspondent a ce que vous avez demande',
+      resultsBody: 'Selectionne a partir des donnees du menu. Aucune donnee personnelle n est enregistree.',
+      changeAnswers: 'Modifier les reponses',
+      startAgain: 'Recommencer',
+      saveAll: 'Enregistrer les trois',
+      browseByMood: 'Parcourir par ambiance',
+      privacy: 'Aucune connexion. Rien n est enregistre apres votre depart, sauf votre liste courte sur cet appareil.',
+      whyPrefix: 'Pourquoi ca convient',
+      whyQuick: 'pret rapidement',
+      whyVegan: '100 % vegetal',
+      whyFallback: 'parfait pour ce soir',
+      steps: [
+        {
+          key: 'hunger' as const,
+          title: 'Quelle est votre faim?',
+          help: 'Il n y a pas de mauvaise reponse. Vous pourrez changer plus tard.',
+          choices: [
+            { value: 'Light' as Hunger, label: 'Legere' },
+            { value: 'Proper' as Hunger, label: 'Normale' },
+            { value: 'Feast' as Hunger, label: 'Festin' },
+          ],
+        },
+        {
+          key: 'mood' as const,
+          title: 'Qu est-ce qui vous tente en ce moment?',
+          help: 'Choisissez ce qui vous ressemble. Vous pourrez changer plus tard.',
+          choices: [
+            { value: 'Fresh' as Mood, label: 'Frais' },
+            { value: 'Comforting' as Mood, label: 'Reconfortant' },
+            { value: 'Bold' as Mood, label: 'Audacieux' },
+            { value: 'Familiar' as Mood, label: 'Classique' },
+          ],
+        },
+        {
+          key: 'dietary' as const,
+          title: 'Y a-t-il quelque chose a eviter?',
+          help: 'Nous affichons seulement les etiquettes interpretees a partir du menu public.',
+          choices: [
+            { value: 'Vegan' as DietaryPreference, label: 'Vegan' },
+            { value: 'Vegetarian' as DietaryPreference, label: 'Vegetarien' },
+            { value: 'Gluten-free' as DietaryPreference, label: 'Sans gluten' },
+            { value: 'No preference' as DietaryPreference, label: 'Aucune preference' },
+          ],
+        },
+        {
+          key: 'time' as const,
+          title: 'Combien de temps avez-vous?',
+          help: 'Nous donnerons priorite aux plats prepares plus rapidement.',
+          choices: [
+            { value: 'Quick' as TimePreference, label: 'Rapide' },
+            { value: 'No rush' as TimePreference, label: 'Pas de presse' },
+          ],
+        },
+      ],
+    },
+    moods: {
+      label: 'PARCOURIR PAR AMBIANCE',
+      title: 'Qu est-ce qui semble juste, maintenant?',
+      body: 'Aucune question, aucune donnee. Juste une facon plus intuitive de parcourir.',
+      cards: {
+        Fresh: { title: 'Clair et frais', cta: 'Choisir Frais' },
+        Comforting: { title: 'Grand reconfort', cta: 'Choisir Reconfortant' },
+        Bold: { title: 'Aventure epicee', cta: 'Choisir Audacieux' },
+        Familiar: { title: 'Quelque chose de connu', cta: 'Choisir Classique' },
+      },
+    },
+    shortlist: {
+      label: 'VOTRE LISTE COURTE',
+      title: 'Pret a commander',
+      body: 'Montrez-la a votre serveur. Rien n est envoye en cuisine.',
+      orderReady: 'Pret a commander',
+      remove: (name: string) => `Retirer ${name}`,
+      totalLabel: 'Articles prets a commander',
+      totalNote: 'Les prix sont des valeurs provisoires provenant de listings publics.',
+      alertTitle: 'Note pour le serveur',
+      alertBody: 'Demandez les options pour allergies avant de commander.',
+      showToServer: 'Montrer au serveur',
+      emptyTitle: 'Votre liste courte est vide',
+      emptyBody: 'Enregistrez des plats pour garder une liste calme et prete a commander.',
+    },
+  },
 }
 
 function Icon({ name, className }: { name: string; className?: string }) {
@@ -134,11 +531,11 @@ function LogoMark() {
   return <span className="logo-mark" aria-hidden="true">u</span>
 }
 
-function DishArt({ dish, large = false }: { dish: Dish; large?: boolean }) {
+function DishArt({ dish, locale, large = false }: { dish: Dish; locale: Locale; large?: boolean }) {
   return (
     <div
       className={`dish-art ${dish.colour} ${large ? 'large' : ''}`}
-      aria-label={`Illustration placeholder for ${dish.name}`}
+      aria-label={`${locale === 'FR' ? 'Illustration' : 'Illustration'} ${localize(dish.name, locale)}`}
       role="img"
     >
       <span>✦</span>
@@ -146,12 +543,12 @@ function DishArt({ dish, large = false }: { dish: Dish; large?: boolean }) {
   )
 }
 
-function Tags({ tags, max }: { tags: Tag[]; max?: number }) {
+function Tags({ tags, locale, max }: { tags: Tag[]; locale: Locale; max?: number }) {
   return (
     <div className="tags">
       {tags.slice(0, max).map((tag) => (
         <Chip color="accent" key={tag} size="sm" variant="soft">
-          {tag}
+          {localize(tagLabels[tag], locale)}
         </Chip>
       ))}
     </div>
@@ -163,29 +560,44 @@ export function App() {
   const [selected, setSelected] = useState<Dish | null>(null)
   const [activeFilters, setActiveFilters] = useState<Tag[]>([])
   const [search, setSearch] = useState('')
-  const [language, setLanguage] = useState<Language>('EN')
+  const [language, setLanguage] = useState<Locale>(() => {
+    const saved = localStorage.getItem('utopia-language')
+    return saved === 'FR' ? 'FR' : 'EN'
+  })
   const [shortlist, setShortlist] = useState<string[]>(() => JSON.parse(localStorage.getItem('utopia-shortlist') || '[]'))
-  const [answers, setAnswers] = useState<{ hunger?: string; mood?: Mood; dietary?: Tag; time?: string }>({})
+  const [answers, setAnswers] = useState<{ hunger?: Hunger; mood?: Mood; dietary?: DietaryPreference; time?: TimePreference }>({})
   const [question, setQuestion] = useState(0)
   const [serverMessage, setServerMessage] = useState<ServerMessage | null>(null)
 
+  const copy = ui[language]
+
   useEffect(() => localStorage.setItem('utopia-shortlist', JSON.stringify(shortlist)), [shortlist])
+  useEffect(() => localStorage.setItem('utopia-language', language), [language])
 
   const shownDishes = useMemo(() => dishes.filter((dish) => {
     const matchesFilter = activeFilters.every((tag) => dish.tags.includes(tag))
-    const text = `${dish.name} ${dish.summary} ${dish.category}`.toLowerCase()
+    const text = [
+      localize(dish.name, language),
+      localize(dish.summary, language),
+      localize(categoryLabels[dish.category], language),
+      localize(categoryCues[dish.category], language),
+      ...dish.tags.map((tag) => localize(tagLabels[tag], language)),
+    ].join(' ').toLowerCase()
     return matchesFilter && text.includes(search.toLowerCase())
-  }), [activeFilters, search])
+  }), [activeFilters, language, search])
 
   const shortlistItems = dishes.filter((dish) => shortlist.includes(dish.id))
+
   const navigate = (next: View) => {
     setView(next)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
   const chooseDish = (dish: Dish) => {
     setSelected(dish)
     navigate('detail')
   }
+
   const toggleShortlist = (id: string) => setShortlist((current) => (
     current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
   ))
@@ -195,13 +607,13 @@ export function App() {
       .filter((dish) => dish.available && !['Drinks', 'Sides'].includes(dish.category))
       .map((dish) => {
         let score = dish.tags.includes('Popular') ? 1 : 0
-        if (answers.dietary && dish.tags.includes(answers.dietary)) score += 8
+        if (answers.dietary && answers.dietary !== 'No preference' && dish.tags.includes(answers.dietary)) score += 8
         if (answers.mood === 'Fresh' && (dish.tags.includes('Vegan') || ['field-mix-greens', 'utopia-good-life', 'seared-tuna-avocado-sandwich'].includes(dish.id))) score += 4
         if (answers.mood === 'Comforting' && ['poutine', 'utopia-burger', 'classic-grilled-cheese', 'breakfast-burrito', 'mactopia'].includes(dish.id)) score += 4
         if (answers.mood === 'Bold' && dish.tags.includes('Spicy')) score += 4
         if (answers.mood === 'Familiar' && dish.tags.includes('Popular')) score += 4
         if (answers.time === 'Quick' && dish.tags.includes('Quick')) score += 3
-        if (answers.hunger === 'Feast' && ['Burritos', 'Burgers', 'Sandwiches', 'Brunch'].includes(dish.category)) score += 2
+        if (answers.hunger === 'Feast' && heartyCategories.includes(dish.category)) score += 2
         return { dish, score }
       })
       .sort((a, b) => b.score - a.score)
@@ -220,18 +632,18 @@ export function App() {
           <span className="eyebrow">UTOPIA CAFE & GRILL · TORONTO</span>
           <div className="language-select">
             <Select
-              aria-label="Language selector"
+              aria-label={copy.languageLabel}
               fullWidth
-              placeholder="Language"
+              placeholder={copy.languagePlaceholder}
               value={language}
-              onChange={(value) => value && setLanguage(value as Language)}
+              onChange={(value) => value && setLanguage(value as Locale)}
             >
               <Select.Trigger>
                 <Select.Value />
                 <Select.Indicator />
               </Select.Trigger>
               <Select.Popover placement="bottom end">
-                <ListBox aria-label="Language options">
+                <ListBox aria-label={copy.languageOptions}>
                   {languages.map((option) => (
                     <ListBox.Item id={option} key={option} textValue={option}>
                       <Label>{option}</Label>
@@ -248,7 +660,7 @@ export function App() {
           <LogoMark />
           <div>
             <h1>Utopia</h1>
-            <p>586 College St · public menu draft</p>
+            <p>586 College St · {copy.draftLabel}</p>
           </div>
         </div>
 
@@ -260,75 +672,83 @@ export function App() {
                 <Alert.Title>{serverMessage.title}</Alert.Title>
                 <Alert.Description>{serverMessage.description}</Alert.Description>
               </Alert.Content>
-              <CloseButton aria-label="Dismiss message" onPress={() => setServerMessage(null)} />
+              <CloseButton aria-label={copy.dismissMessage} onPress={() => setServerMessage(null)} />
             </Alert>
           </div>
         )}
 
         {view === 'menu' && (
           <MenuView
-            shownDishes={shownDishes}
             activeFilters={activeFilters}
-            search={search}
-            onSearch={setSearch}
-            onFilters={setActiveFilters}
+            locale={language}
             onClear={() => setActiveFilters([])}
             onDish={chooseDish}
+            onFilters={setActiveFilters}
             onNavigate={navigate}
+            onSearch={setSearch}
+            search={search}
+            shownDishes={shownDishes}
+            strings={copy.menu}
           />
         )}
         {view === 'detail' && selected && (
           <DetailView
             dish={selected}
-            saved={shortlist.includes(selected.id)}
-            onBack={() => navigate('menu')}
-            onSave={() => toggleShortlist(selected.id)}
-            onPairing={chooseDish}
+            locale={language}
             onAllergy={() => showServerMessage({
-              title: 'Allergy reminder',
-              description: 'Please speak to your server about ingredients and cross-contamination before ordering.',
+              title: copy.allergyReminder.title,
+              description: copy.allergyReminder.description,
               status: 'warning',
             })}
+            onBack={() => navigate('menu')}
+            onPairing={chooseDish}
+            onSave={() => toggleShortlist(selected.id)}
+            saved={shortlist.includes(selected.id)}
+            strings={copy.detail}
           />
         )}
         {view === 'choose' && (
           <ChooseView
             answers={answers}
-            question={question}
-            recommendations={recommendations.map((entry) => entry.dish)}
+            locale={language}
             onAnswer={(key, value) => {
               setAnswers((current) => ({ ...current, [key]: value }))
               setQuestion((current) => Math.min(current + 1, 4))
             }}
+            onBrowseMoods={() => navigate('moods')}
+            onDish={chooseDish}
             onRestart={() => {
               setAnswers({})
               setQuestion(0)
             }}
-            onBrowseMoods={() => navigate('moods')}
-            onDish={chooseDish}
             onSaveAll={() => setShortlist(recommendations.map(({ dish }) => dish.id))}
+            question={question}
+            recommendations={recommendations.map((entry) => entry.dish)}
+            strings={copy.choose}
           />
         )}
         {view === 'moods' && (
-          <MoodView onMood={(mood) => {
+          <MoodView locale={language} onMood={(mood) => {
             setAnswers((current) => ({ ...current, mood }))
             setQuestion(4)
             navigate('choose')
-          }} />
+          }} strings={copy.moods} />
         )}
         {view === 'shortlist' && (
           <ShortlistView
             items={shortlistItems}
+            locale={language}
             onRemove={toggleShortlist}
             onServer={() => showServerMessage({
-              title: 'Ready for your server',
-              description: 'Show this shortlist to your server when you are ready to order.',
+              title: copy.readyForServer.title,
+              description: copy.readyForServer.description,
               status: 'accent',
             })}
+            strings={copy.shortlist}
           />
         )}
 
-        <nav className="bottom-nav" aria-label="Primary navigation">
+        <nav className="bottom-nav" aria-label={copy.nav.primary}>
           <Button
             className="nav-button"
             aria-current={view === 'menu' || view === 'detail' ? 'page' : undefined}
@@ -337,7 +757,7 @@ export function App() {
             onPress={() => navigate('menu')}
           >
             <Icon className="nav-icon" name="menu" />
-            <span>Menu</span>
+            <span>{copy.nav.menu}</span>
           </Button>
           <Button
             className="nav-button"
@@ -347,7 +767,7 @@ export function App() {
             onPress={() => navigate('choose')}
           >
             <Icon className="nav-icon" name="magic" />
-            <span>Choose</span>
+            <span>{copy.nav.choose}</span>
           </Button>
           <Button
             className="nav-button"
@@ -357,7 +777,7 @@ export function App() {
             onPress={() => navigate('shortlist')}
           >
             <Icon className="nav-icon" name="bookmark" />
-            <span>Shortlist</span>
+            <span>{copy.nav.shortlist}</span>
             {shortlist.length > 0 && <Chip color="accent" size="sm">{shortlist.length}</Chip>}
           </Button>
           <Button
@@ -365,19 +785,19 @@ export function App() {
             size="sm"
             variant="ghost"
             onPress={() => showServerMessage({
-              title: 'Your server can help',
-              description: 'Please ask your server—they will be happy to help.',
+              title: copy.serverHelp.title,
+              description: copy.serverHelp.description,
               status: 'accent',
             })}
           >
             <Icon className="nav-icon" name="bell" />
-            <span>Server</span>
+            <span>{copy.nav.server}</span>
           </Button>
         </nav>
       </div>
 
       <p className="demo-note" id="source-note">
-        Menu imported from public delivery listings. Confirm prices, allergens, availability, and nutrition with Utopia before launch.
+        {copy.sourceNote}
       </p>
     </main>
   )
@@ -392,40 +812,42 @@ type MenuViewProps = {
   onClear: () => void
   onDish: (dish: Dish) => void
   onNavigate: (view: View) => void
+  locale: Locale
+  strings: MenuStrings
 }
 
-function MenuView({ shownDishes, activeFilters, search, onSearch, onFilters, onClear, onDish, onNavigate }: MenuViewProps) {
+function MenuView({ shownDishes, activeFilters, search, onSearch, onFilters, onClear, onDish, onNavigate, locale, strings }: MenuViewProps) {
   return (
     <section className="view menu-view">
       <section className="hero-feature">
         <div>
-          <span className="section-label">MOST ORDERED</span>
-          <h2>Burritos, burgers, brunch and comfort plates.</h2>
-          <p>Built from the public Utopia Cafe & Grill menu for the first working QR prototype.</p>
+          <span className="section-label">{strings.mostOrdered}</span>
+          <h2>{strings.heroTitle}</h2>
+          <p>{strings.heroBody}</p>
           <Link href="#source-note">
-            View source note
+            {strings.sourceLink}
             <Link.Icon>→</Link.Icon>
           </Link>
         </div>
-        <DishArt dish={dishes.find((dish) => dish.id === 'utopia-burger') ?? dishes[0]} />
+        <DishArt dish={dishes.find((dish) => dish.id === 'utopia-burger') ?? dishes[0]} locale={locale} />
       </section>
 
       <SearchField
-        aria-label="Search the menu"
+        aria-label={strings.searchLabel}
         fullWidth
         value={search}
         onChange={onSearch}
       >
         <SearchField.Group>
           <SearchField.SearchIcon />
-          <SearchField.Input placeholder="Search the menu" />
+          <SearchField.Input placeholder={strings.searchPlaceholder} />
           <SearchField.ClearButton />
         </SearchField.Group>
       </SearchField>
 
       <div className="filter-row">
         <ToggleButtonGroup
-          aria-label="Menu filters"
+          aria-label={strings.filtersLabel}
           isDetached
           selectedKeys={activeFilters}
           selectionMode="multiple"
@@ -435,33 +857,33 @@ function MenuView({ shownDishes, activeFilters, search, onSearch, onFilters, onC
           {filterTags.map((tag) => (
             <ToggleButton className="filter-chip" id={tag} key={tag}>
               <Icon className="filter-chip-icon" name={filterTagIcons[tag]} />
-              <span>{tag}</span>
+              <span>{localize(tagLabels[tag], locale)}</span>
             </ToggleButton>
           ))}
         </ToggleButtonGroup>
         {activeFilters.length > 0 && (
-          <Button size="sm" variant="ghost" onPress={onClear}>Clear all</Button>
+          <Button size="sm" variant="ghost" onPress={onClear}>{strings.clearAll}</Button>
         )}
       </div>
 
       <div className="action-grid">
         <Button fullWidth onPress={() => document.getElementById('appetizers')?.scrollIntoView({ behavior: 'smooth' })}>
-          Browse menu
+          {strings.browseMenu}
         </Button>
         <Button fullWidth variant="outline" onPress={() => onNavigate('choose')}>
-          Help me choose
+          {strings.helpMeChoose}
         </Button>
       </div>
 
       <section className="category-index">
-        <span className="section-label">EXPLORE MENU</span>
+        <span className="section-label">{strings.exploreMenu}</span>
         <Separator />
-        {categories.map(([name, cue]) => (
+        {categories.map((name) => (
           <div className="category-link" key={name}>
             <Button fullWidth variant="ghost" onPress={() => document.getElementById(categoryId(name))?.scrollIntoView({ behavior: 'smooth' })}>
               <span className="category-link-copy">
-                <strong>{name}</strong>
-                <span>{cue} · {dishes.filter((dish) => dish.category === name).length}</span>
+                <strong>{localize(categoryLabels[name], locale)}</strong>
+                <span>{localize(categoryCues[name], locale)} · {dishes.filter((dish) => dish.category === name).length}</span>
               </span>
             </Button>
             <Separator />
@@ -469,21 +891,21 @@ function MenuView({ shownDishes, activeFilters, search, onSearch, onFilters, onC
         ))}
       </section>
 
-      {categories.map(([category, cue]) => {
+      {categories.map((category) => {
         const inCategory = shownDishes.filter((dish) => dish.category === category)
         return (
           <section className="menu-category" id={categoryId(category)} key={category}>
             <div className="category-heading">
               <div>
-                <h2>{category}</h2>
-                <p>{cue}</p>
+                <h2>{localize(categoryLabels[category], locale)}</h2>
+                <p>{localize(categoryCues[category], locale)}</p>
               </div>
-              <span>{inCategory.length} items</span>
+              <span>{strings.itemCount(inCategory.length)}</span>
             </div>
             <Separator />
             {inCategory.length
-              ? inCategory.map((dish) => <DishRow dish={dish} onPress={() => onDish(dish)} key={dish.id} />)
-              : <p className="empty">No items match these filters. Try clearing one.</p>}
+              ? inCategory.map((dish) => <DishRow dish={dish} locale={locale} onPress={() => onDish(dish)} key={dish.id} unavailableLabel={strings.unavailable} />)
+              : <p className="empty">{strings.empty}</p>}
           </section>
         )
       })}
@@ -491,20 +913,20 @@ function MenuView({ shownDishes, activeFilters, search, onSearch, onFilters, onC
   )
 }
 
-function DishRow({ dish, onPress, why }: { dish: Dish; onPress: () => void; why?: string }) {
+function DishRow({ dish, locale, onPress, why, unavailableLabel }: { dish: Dish; locale: Locale; onPress: () => void; why?: string; unavailableLabel?: string }) {
   return (
     <div className="dish-card-wrap">
       <Button className="dish-row-button" fullWidth isDisabled={!dish.available} variant="ghost" onPress={onPress}>
         <span className="dish-row-content">
           <span className="dish-copy">
-            <strong className="dish-name">{dish.name}</strong>
-            <span className="dish-summary">{dish.summary}</span>
+            <strong className="dish-name">{localize(dish.name, locale)}</strong>
+            <span className="dish-summary">{localize(dish.summary, locale)}</span>
             {why && <span className="dish-reason">{why}</span>}
             <strong>{money(dish.price)}</strong>
-            <Tags tags={dish.tags} max={2} />
-            {!dish.available && <Chip color="danger" size="sm" variant="soft">Unavailable today</Chip>}
+            <Tags tags={dish.tags} locale={locale} max={2} />
+            {!dish.available && unavailableLabel && <Chip color="danger" size="sm" variant="soft">{unavailableLabel}</Chip>}
           </span>
-          <DishArt dish={dish} />
+          <DishArt dish={dish} locale={locale} />
         </span>
       </Button>
     </div>
@@ -518,49 +940,51 @@ type DetailViewProps = {
   onSave: () => void
   onPairing: (dish: Dish) => void
   onAllergy: () => void
+  locale: Locale
+  strings: DetailStrings
 }
 
-function DetailView({ dish, saved, onBack, onSave, onPairing, onAllergy }: DetailViewProps) {
+function DetailView({ dish, saved, onBack, onSave, onPairing, onAllergy, locale, strings }: DetailViewProps) {
   const pair = dish.pairing ? dishes.find((item) => item.id === dish.pairing?.id) : undefined
   return (
     <section className="view detail-view">
-      <Button size="sm" variant="ghost" onPress={onBack}>← Menu</Button>
-      <DishArt dish={dish} large />
+      <Button size="sm" variant="ghost" onPress={onBack}>← {strings.back}</Button>
+      <DishArt dish={dish} large locale={locale} />
 
       <div className="detail-title">
         <div>
-          <span className="section-label">{dish.category.toUpperCase()}</span>
-          <h2>{dish.name}</h2>
+          <span className="section-label">{localize(categoryLabels[dish.category], locale).toUpperCase()}</span>
+          <h2>{localize(dish.name, locale)}</h2>
         </div>
         <strong>{money(dish.price)}</strong>
       </div>
-      <p className="detail-summary">{dish.summary}</p>
-      <Tags tags={dish.tags} />
+      <p className="detail-summary">{localize(dish.summary, locale)}</p>
+      <Tags tags={dish.tags} locale={locale} />
 
       <Separator />
       <section className="detail-block">
-        <span className="section-label">MENU DESCRIPTION</span>
-        <p>{dish.description}</p>
+        <span className="section-label">{strings.menuDescription}</span>
+        <p>{localize(dish.description, locale)}</p>
       </section>
 
       <Separator />
       <section className="detail-block allergy">
-        <span className="section-label">DIETARY & ALLERGY</span>
-        <p>Dietary tags are interpreted from public menu text and must be checked with the restaurant before launch.</p>
+        <span className="section-label">{strings.dietary}</span>
+        <p>{strings.dietaryBody}</p>
         <Link href="#server-alert" onPress={onAllergy}>
-          Please speak to your server about allergies
+          {strings.speakToServer}
           <Link.Icon>→</Link.Icon>
         </Link>
       </section>
 
       <Separator />
       <section className="nutrition">
-        <span className="section-label">ESTIMATED NUTRITION</span>
+        <span className="section-label">{strings.nutrition}</span>
         <div>
           <strong>{dish.calories}<small>kcal</small></strong>
-          <strong>{dish.protein}g<small>protein</small></strong>
-          <strong>{dish.carbs}g<small>carbs</small></strong>
-          <strong>{dish.fat}g<small>fat</small></strong>
+          <strong>{dish.protein}g<small>{strings.protein}</small></strong>
+          <strong>{dish.carbs}g<small>{strings.carbs}</small></strong>
+          <strong>{dish.fat}g<small>{strings.fat}</small></strong>
         </div>
       </section>
 
@@ -568,10 +992,10 @@ function DetailView({ dish, saved, onBack, onSave, onPairing, onAllergy }: Detai
         <>
           <Separator />
           <section className="detail-block customisations">
-            <span className="section-label">MAKE IT YOURS</span>
+            <span className="section-label">{strings.customisations}</span>
             {dish.customisations.map((item) => (
-              <Button fullWidth key={item} variant="outline">
-                {item} <span aria-hidden="true">→</span>
+              <Button fullWidth key={localize(item, locale)} variant="outline">
+                {localize(item, locale)} <span aria-hidden="true">→</span>
               </Button>
             ))}
           </section>
@@ -581,15 +1005,15 @@ function DetailView({ dish, saved, onBack, onSave, onPairing, onAllergy }: Detai
       {pair && (
         <Card>
           <Card.Header>
-            <Card.Title>Goes well with</Card.Title>
+            <Card.Title>{strings.pairingTitle}</Card.Title>
           </Card.Header>
           <Card.Content>
             <Button fullWidth variant="ghost" onPress={() => onPairing(pair)}>
               <span className="pairing-content">
-                <DishArt dish={pair} />
+                <DishArt dish={pair} locale={locale} />
                 <span>
-                  <strong>{pair.name}</strong>
-                  <span>{dish.pairing?.reason}</span>
+                  <strong>{localize(pair.name, locale)}</strong>
+                  <span>{dish.pairing ? localize(dish.pairing.reason, locale) : ''}</span>
                 </span>
                 <strong>{money(pair.price)}</strong>
               </span>
@@ -600,7 +1024,7 @@ function DetailView({ dish, saved, onBack, onSave, onPairing, onAllergy }: Detai
 
       <div className="sticky-action">
         <Button fullWidth isDisabled={!dish.available} onPress={onSave}>
-          {saved ? 'Saved to shortlist' : 'Add to shortlist'}
+          {saved ? strings.saved : strings.add}
         </Button>
       </div>
     </section>
@@ -608,54 +1032,52 @@ function DetailView({ dish, saved, onBack, onSave, onPairing, onAllergy }: Detai
 }
 
 type ChooseViewProps = {
-  answers: { hunger?: string; mood?: Mood; dietary?: Tag; time?: string }
+  answers: { hunger?: Hunger; mood?: Mood; dietary?: DietaryPreference; time?: TimePreference }
   question: number
   recommendations: Dish[]
-  onAnswer: (key: 'hunger' | 'mood' | 'dietary' | 'time', value: string) => void
+  onAnswer: (key: 'hunger' | 'mood' | 'dietary' | 'time', value: Hunger | Mood | DietaryPreference | TimePreference) => void
   onRestart: () => void
   onBrowseMoods: () => void
   onDish: (dish: Dish) => void
   onSaveAll: () => void
+  locale: Locale
+  strings: ChooseStrings
 }
 
-function ChooseView({ answers, question, recommendations, onAnswer, onRestart, onBrowseMoods, onDish, onSaveAll }: ChooseViewProps) {
+function ChooseView({ answers, question, recommendations, onAnswer, onRestart, onBrowseMoods, onDish, onSaveAll, locale, strings }: ChooseViewProps) {
   if (question >= 4) {
     return (
       <section className="view choose-view">
-        <span className="section-label">FIND MY PLATE · YOUR MATCHES</span>
-        <h2>Three plates that match what you asked for</h2>
-        <p className="muted">Curated from menu facts—no personal data is saved.</p>
-        <Link onPress={onRestart}>Change answers</Link>
+        <span className="section-label">{strings.resultsLabel}</span>
+        <h2>{strings.resultsTitle}</h2>
+        <p className="muted">{strings.resultsBody}</p>
+        <Link onPress={onRestart}>{strings.changeAnswers}</Link>
         <div className="recommendations">
           {recommendations.map((dish) => (
             <DishRow
               dish={dish}
               key={dish.id}
+              locale={locale}
               onPress={() => onDish(dish)}
-              why={`Why it fits — ${dish.tags.includes('Quick') ? 'ready quickly, ' : ''}${dish.tags.includes('Vegan') ? 'plant-powered, ' : ''}made for tonight.`}
+              why={buildWhyCopy(dish, locale, strings)}
             />
           ))}
         </div>
         <div className="action-grid">
-          <Button fullWidth variant="outline" onPress={onRestart}>Start again</Button>
-          <Button fullWidth onPress={onSaveAll}>Save all three</Button>
+          <Button fullWidth variant="outline" onPress={onRestart}>{strings.startAgain}</Button>
+          <Button fullWidth onPress={onSaveAll}>{strings.saveAll}</Button>
         </div>
       </section>
     )
   }
 
-  const step = [
-    { key: 'hunger' as const, title: 'How hungry are you?', help: 'There is no wrong answer. You can change it later.', choices: ['Light', 'Proper', 'Feast'] },
-    { key: 'mood' as const, title: 'What sounds good right now?', help: 'Pick the one that fits—you can change it later.', choices: ['Fresh', 'Comforting', 'Bold', 'Familiar'] },
-    { key: 'dietary' as const, title: 'Anything we should work around?', help: 'We only show tags interpreted from the public menu.', choices: ['Vegan', 'Vegetarian', 'Gluten-free', 'No preference'] },
-    { key: 'time' as const, title: 'How much time do you have?', help: 'We will prioritise dishes ready sooner.', choices: ['Quick', 'No rush'] },
-  ][question]
+  const step = strings.steps[question]
 
   return (
     <section className="view choose-view">
-      <span className="section-label">FIND MY PLATE · {question + 1} OF 4</span>
+      <span className="section-label">{strings.introLabel} · {question + 1} / 4</span>
       <div className="progress-wrap">
-        <ProgressBar aria-label={`Question ${question + 1} of 4`} maxValue={4} minValue={0} size="sm" value={question + 1}>
+        <ProgressBar aria-label={strings.progress(question + 1, 4)} maxValue={4} minValue={0} size="sm" value={question + 1}>
           <ProgressBar.Track>
             <ProgressBar.Fill />
           </ProgressBar.Track>
@@ -664,49 +1086,47 @@ function ChooseView({ answers, question, recommendations, onAnswer, onRestart, o
       <h2>{step.title}</h2>
       <p className="muted">{step.help}</p>
       {question === 0 && (
-        <Button size="sm" variant="ghost" onPress={onBrowseMoods}>Browse by mood instead</Button>
+        <Button size="sm" variant="ghost" onPress={onBrowseMoods}>{strings.browseByMood}</Button>
       )}
       <div className="answers-wrap">
         <RadioGroup
           aria-label={step.title}
           value={answers[step.key]}
-          onChange={(value) => onAnswer(step.key, value)}
+          onChange={(value) => onAnswer(step.key, value as Hunger | Mood | DietaryPreference | TimePreference)}
         >
           {step.choices.map((choice) => (
-            <Radio key={choice} value={choice}>
+            <Radio key={choice.value} value={choice.value}>
               <Radio.Content>
                 <Radio.Control>
                   <Radio.Indicator />
                 </Radio.Control>
-                {choice}
+                {choice.label}
               </Radio.Content>
             </Radio>
           ))}
         </RadioGroup>
       </div>
-      <p className="privacy-note">No sign-in. Nothing is saved after you leave, except your shortlist on this device.</p>
+      <p className="privacy-note">{strings.privacy}</p>
     </section>
   )
 }
 
-function MoodView({ onMood }: { onMood: (mood: Mood) => void }) {
+function MoodView({ onMood, locale, strings }: { onMood: (mood: Mood) => void; locale: Locale; strings: MoodStrings }) {
   return (
     <section className="view mood-view">
-      <span className="section-label">BROWSE BY MOOD</span>
-      <h2>What sounds right, right now?</h2>
-      <p className="muted">No questions, no data. Just a more intuitive way to browse.</p>
+      <span className="section-label">{strings.label}</span>
+      <h2>{strings.title}</h2>
+      <p className="muted">{strings.body}</p>
       <div className="mood-grid">
-        {(['Fresh', 'Comforting', 'Bold', 'Familiar'] as Mood[]).map((mood, index) => (
+        {moodItems.map((mood, index) => (
           <Card key={mood}>
             <Card.Content>
               <span className={`mood-art tone-${index}`} aria-hidden="true">✦</span>
-              <Card.Title>
-                {mood === 'Fresh' ? 'Bright & fresh' : mood === 'Comforting' ? 'Big comfort' : mood === 'Bold' ? 'Spicy adventure' : 'Something familiar'}
-              </Card.Title>
-              <Card.Description>{[8, 18, 15, 12][index]} items</Card.Description>
+              <Card.Title>{strings.cards[mood].title}</Card.Title>
+              <Card.Description>{countMoodItems(mood)} {locale === 'FR' ? 'articles' : 'items'}</Card.Description>
             </Card.Content>
             <Card.Footer>
-              <Button fullWidth variant="outline" onPress={() => onMood(mood)}>Choose {mood}</Button>
+              <Button fullWidth variant="outline" onPress={() => onMood(mood)}>{strings.cards[mood].cta}</Button>
             </Card.Footer>
           </Card>
         ))}
@@ -715,13 +1135,13 @@ function MoodView({ onMood }: { onMood: (mood: Mood) => void }) {
   )
 }
 
-function ShortlistView({ items, onRemove, onServer }: { items: Dish[]; onRemove: (id: string) => void; onServer: () => void }) {
+function ShortlistView({ items, onRemove, onServer, locale, strings }: { items: Dish[]; onRemove: (id: string) => void; onServer: () => void; locale: Locale; strings: ShortlistStrings }) {
   const total = items.reduce((sum, dish) => sum + dish.price, 0)
   return (
     <section className="view shortlist-view">
-      <span className="section-label">YOUR SHORTLIST</span>
-      <h2>Ready to order</h2>
-      <p className="muted">Show this to your server. Nothing is sent to the kitchen.</p>
+      <span className="section-label">{strings.label}</span>
+      <h2>{strings.title}</h2>
+      <p className="muted">{strings.body}</p>
       {items.length ? (
         <>
           <div className="shortlist-items">
@@ -730,40 +1150,62 @@ function ShortlistView({ items, onRemove, onServer }: { items: Dish[]; onRemove:
                 <Separator />
                 <article>
                   <div>
-                    <strong>{dish.name}</strong>
-                    <p>{dish.summary}</p>
-                    <Chip color="success" size="sm" variant="soft">Order-ready</Chip>
+                    <strong>{localize(dish.name, locale)}</strong>
+                    <p>{localize(dish.summary, locale)}</p>
+                    <Chip color="success" size="sm" variant="soft">{strings.orderReady}</Chip>
                   </div>
                   <strong>{money(dish.price)}</strong>
-                  <CloseButton aria-label={`Remove ${dish.name}`} onPress={() => onRemove(dish.id)} />
+                  <CloseButton aria-label={strings.remove(localize(dish.name, locale))} onPress={() => onRemove(dish.id)} />
                 </article>
               </div>
             ))}
           </div>
           <Separator />
           <div className="order-total">
-            <strong>Order-ready items</strong>
+            <strong>{strings.totalLabel}</strong>
             <strong>{money(total)}</strong>
-            <p>Prices are draft values from public listings.</p>
+            <p>{strings.totalNote}</p>
           </div>
           <Alert status="warning">
             <Alert.Indicator />
             <Alert.Content>
-              <Alert.Title>Note for the server</Alert.Title>
-              <Alert.Description>Ask about allergy options before ordering.</Alert.Description>
+              <Alert.Title>{strings.alertTitle}</Alert.Title>
+              <Alert.Description>{strings.alertBody}</Alert.Description>
             </Alert.Content>
           </Alert>
           <div className="shortlist-action">
-            <Button fullWidth onPress={onServer}>Show to server</Button>
+            <Button fullWidth onPress={onServer}>{strings.showToServer}</Button>
           </div>
         </>
       ) : (
         <EmptyState>
           <LogoMark />
-          <h3>Your shortlist is empty</h3>
-          <p>Save dishes to keep a calm, order-ready list.</p>
+          <h3>{strings.emptyTitle}</h3>
+          <p>{strings.emptyBody}</p>
         </EmptyState>
       )}
     </section>
   )
+}
+
+function buildWhyCopy(dish: Dish, locale: Locale, strings: ChooseStrings) {
+  const parts = []
+  if (dish.tags.includes('Quick')) parts.push(strings.whyQuick)
+  if (dish.tags.includes('Vegan')) parts.push(strings.whyVegan)
+  parts.push(strings.whyFallback)
+  return `${strings.whyPrefix} - ${parts.join(', ')}.`
+}
+
+function countMoodItems(mood: Mood) {
+  switch (mood) {
+    case 'Fresh':
+      return 8
+    case 'Comforting':
+      return 18
+    case 'Bold':
+      return 15
+    case 'Familiar':
+    default:
+      return 12
+  }
 }

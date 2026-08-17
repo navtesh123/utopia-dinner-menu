@@ -433,6 +433,10 @@ p {
   font-size: 1.8rem;
 }
 
+.detail-view {
+  padding-top: 0.9rem;
+}
+
 .detail-summary {
   margin: 0.75rem 0;
   line-height: 1.45;
@@ -492,6 +496,39 @@ p {
   bottom: 4.75rem;
   z-index: 2;
   margin-top: 1rem;
+}
+
+.detail-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 0.65rem;
+}
+
+.detail-save-button {
+  flex: 1 1 auto;
+}
+
+.quantity-stepper {
+  display: inline-grid;
+  grid-template-columns: auto minmax(2rem, auto) auto;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--surface) 96%, transparent);
+}
+
+.quantity-stepper > span {
+  min-width: 1.5rem;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.quantity-stepper button {
+  min-width: 2rem;
+  min-height: 2rem;
 }
 
 .choose-view h2,
@@ -563,6 +600,16 @@ p {
   margin: 0.25rem 0 0.45rem;
   color: var(--muted);
   font-size: 0.8rem;
+}
+
+.shortlist-meta {
+  display: grid;
+  justify-items: end;
+  gap: 0.5rem;
+}
+
+.shortlist-stepper {
+  justify-self: end;
 }
 
 .order-total {
@@ -666,6 +713,20 @@ p {
   .mood-grid,
   .action-grid {
     grid-template-columns: 1fr;
+  }
+
+  .detail-actions,
+  .shortlist-items article {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-actions {
+    display: grid;
+  }
+
+  .quantity-stepper,
+  .shortlist-meta {
+    justify-self: start;
   }
 
   .nutrition > div {
