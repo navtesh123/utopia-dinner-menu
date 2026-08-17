@@ -215,31 +215,59 @@ p {
   }
 }
 
-.hero-feature {
-  padding: 0.15rem 0 1.2rem;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 5rem;
-  align-items: center;
-  gap: 1rem;
-}
-
-.hero-feature h2 {
-  margin: 0.35rem 0 0.5rem;
-  font-size: 1.5rem;
-  line-height: 1.05;
-}
-
-.hero-feature p,
 .muted,
 .empty,
 .demo-note {
   color: var(--muted);
 }
 
-.hero-feature p {
-  margin-bottom: 0.65rem;
-  font-size: 0.85rem;
+.hero-carousel {
+  padding: 0.15rem 0 1.15rem;
+}
+
+.hero-carousel-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.hero-carousel-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(16.25rem, 1fr);
+  gap: 0.7rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  scrollbar-width: none;
+}
+
+.hero-carousel-track::-webkit-scrollbar {
+  display: none;
+}
+
+.hero-card {
+  min-width: 0;
+  padding: 0.95rem;
+  display: grid;
+  gap: 0.85rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 0.35rem 1rem oklch(15% 0.0136 259.19 / 6%);
+}
+
+.hero-card-copy h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.08;
+}
+
+.hero-card-copy p {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
   line-height: 1.45;
+  color: var(--muted);
 }
 
 .dish-art {
@@ -277,20 +305,19 @@ p {
 }
 
 .filter-row {
-  width: 100%;
+  width: calc(100% + 2.8rem);
   min-width: 0;
   position: sticky;
   top: 0;
   z-index: 6;
   margin: 0 -1.4rem;
-  padding: 0.75rem 1.4rem 0.9rem;
+  padding: 0.75rem 1.4rem 0.8rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   overflow-x: auto;
   scrollbar-width: none;
   background: color-mix(in oklch, var(--surface) 94%, transparent);
-  border-bottom: 1px solid color-mix(in oklch, var(--border) 78%, transparent);
   backdrop-filter: blur(0.9rem);
 }
 
@@ -317,8 +344,21 @@ p {
   gap: 0.6rem;
 }
 
-.category-index {
+.category-accordion {
   margin-top: 1.5rem;
+}
+
+.category-accordion > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.category-accordion > summary::-webkit-details-marker {
+  display: none;
+}
+
+.category-index {
+  margin-top: 0.75rem;
 }
 
 .category-index > .section-label {
@@ -402,7 +442,7 @@ p {
 }
 
 .dish-name {
-  font-size: 1.15rem;
+  font-size: 1.28rem;
   line-height: 1.25;
   overflow-wrap: anywhere;
 }

@@ -817,19 +817,29 @@ type MenuViewProps = {
 }
 
 function MenuView({ shownDishes, activeFilters, search, onSearch, onFilters, onClear, onDish, onNavigate, locale, strings }: MenuViewProps) {
+  const featuredDishes = [
+    dishes.find((dish) => dish.id === 'utopia-burger') ?? dishes[0],
+    dishes.find((dish) => dish.id === 'poutine') ?? dishes[1],
+    dishes.find((dish) => dish.id === 'chicken-karaage') ?? dishes[2],
+  ]
+
   return (
     <section className="view menu-view">
-      <section className="hero-feature">
-        <div>
+      <section className="hero-carousel" aria-label={strings.mostOrdered}>
+        <div className="hero-carousel-header">
           <span className="section-label">{strings.mostOrdered}</span>
-          <h2>{strings.heroTitle}</h2>
-          <p>{strings.heroBody}</p>
-          <Link href="#source-note">
-            {strings.sourceLink}
-            <Link.Icon>→</Link.Icon>
-          </Link>
         </div>
-        <DishArt dish={dishes.find((dish) => dish.id === 'utopia-burger') ?? dishes[0]} locale={locale} />
+        <div className="hero-carousel-track" role="list">
+          {featuredDishes.map((dish, index) => (
+            <Card className={`hero-card hero-card-${index + 1}`} key={dish.id} role="listitem">
+              <div className="hero-card-copy">
+                <h2>{localize(dish.name, locale)}</h2>
+                <p>{localize(dish.summary, locale)}</p>
+              </div>
+              <DishArt dish={dish} locale={locale} />
+            </Card>
+          ))}
+        </div>
       </section>
 
       <SearchField
@@ -866,30 +876,25 @@ function MenuView({ shownDishes, activeFilters, search, onSearch, onFilters, onC
         )}
       </div>
 
-      <div className="action-grid">
-        <Button fullWidth onPress={() => document.getElementById('appetizers')?.scrollIntoView({ behavior: 'smooth' })}>
-          {strings.browseMenu}
-        </Button>
-        <Button fullWidth variant="outline" onPress={() => onNavigate('choose')}>
-          {strings.helpMeChoose}
-        </Button>
-      </div>
-
-      <section className="category-index">
-        <span className="section-label">{strings.exploreMenu}</span>
-        <Separator />
-        {categories.map((name) => (
-          <div className="category-link" key={name}>
-            <Button fullWidth variant="ghost" onPress={() => document.getElementById(categoryId(name))?.scrollIntoView({ behavior: 'smooth' })}>
-              <span className="category-link-copy">
-                <strong>{localize(categoryLabels[name], locale)}</strong>
-                <span>{localize(categoryCues[name], locale)} · {dishes.filter((dish) => dish.category === name).length}</span>
-              </span>
-            </Button>
-            <Separator />
-          </div>
-        ))}
-      </section>
+      <details className="category-accordion">
+        <summary>
+          <span className="section-label">{strings.exploreMenu}</span>
+        </summary>
+        <div className="category-index">
+          <Separator />
+          {categories.map((name) => (
+            <div className="category-link" key={name}>
+              <Button fullWidth variant="ghost" onPress={() => document.getElementById(categoryId(name))?.scrollIntoView({ behavior: 'smooth' })}>
+                <span className="category-link-copy">
+                  <strong>{localize(categoryLabels[name], locale)}</strong>
+                  <span>{localize(categoryCues[name], locale)} · {dishes.filter((dish) => dish.category === name).length}</span>
+                </span>
+              </Button>
+              <Separator />
+            </div>
+          ))}
+        </div>
+      </details>
 
       {categories.map((category) => {
         const inCategory = shownDishes.filter((dish) => dish.category === category)
@@ -919,10 +924,10 @@ function DishRow({ dish, locale, onPress, why, unavailableLabel }: { dish: Dish;
       <Button className="dish-row-button" fullWidth isDisabled={!dish.available} variant="ghost" onPress={onPress}>
         <span className="dish-row-content">
           <span className="dish-copy">
+            <Tags tags={dish.tags} locale={locale} max={2} />
             <strong className="dish-name">{localize(dish.name, locale)}</strong>
             <span className="dish-summary">{localize(dish.summary, locale)}</span>
             {why && <span className="dish-reason">{why}</span>}
-            <Tags tags={dish.tags} locale={locale} max={2} />
             <strong>{money(dish.price)}</strong>
             {!dish.available && unavailableLabel && <Chip color="danger" size="sm" variant="soft">{unavailableLabel}</Chip>}
           </span>
