@@ -21,4 +21,10 @@ Import this GitHub repository into Vercel. It will detect Vite automatically; us
 
 ## Content note
 
-The menu items are clearly labelled demonstration content used to make the prototype interactive. Replace them with restaurant-approved menu, dietary, allergy, offer, pairing, image, and availability data before publication.
+The menu has been populated from public Utopia Cafe & Grill delivery listings for prototype use:
+
+- SkipTheDishes: https://www.skipthedishes.com/utopia?version=v2
+- DoorDash: https://www.doordash.com/store/utopia-cafe-%26-grill-toronto-35461741/
+- Uber Eats: https://www.ubereats.com/ca/store/utopia-cafe-and-grill/LG_nlmwNSTOJY3zJwjT9XQ
+
+Confirm prices, availability, dietary tags, allergens, images, and nutrition directly with the restaurant before publication.

@@ -1,11 +1,12 @@
 import { Button } from '@heroui/react'
 import { useEffect, useMemo, useState } from 'react'
-import { categories, dishes, filterTags, type Dish, type Tag } from './data'
+import { categories, dishes, filterTags, type Category, type Dish, type Tag } from './data'
 
 type View = 'menu' | 'choose' | 'moods' | 'shortlist' | 'detail'
 type Mood = 'Fresh' | 'Comforting' | 'Bold' | 'Familiar'
 
-const money = (value: number) => `£${value.toFixed(2)}`
+const money = (value: number) => `CA$${value.toFixed(2)}`
+const categoryId = (category: Category) => category.toLowerCase().replace(/\s+/g, '-')
 
 function LogoMark() {
   return <span className="logo-mark" aria-hidden="true">u</span>
@@ -43,15 +44,15 @@ export function App() {
   const toggleFilter = (tag: Tag) => setActiveFilters((current) => current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag])
 
   const recommendations = useMemo(() => {
-    return dishes.filter((dish) => dish.available && dish.category !== 'Drinks').map((dish) => {
+    return dishes.filter((dish) => dish.available && !['Drinks', 'Sides'].includes(dish.category)).map((dish) => {
       let score = dish.tags.includes('Popular') ? 1 : 0
       if (answers.dietary && dish.tags.includes(answers.dietary)) score += 8
-      if (answers.mood === 'Fresh' && (dish.tags.includes('Vegan') || dish.id === 'seared-fish')) score += 4
-      if (answers.mood === 'Comforting' && ['lemon-chicken', 'mushroom-orzo', 'sticky-date'].includes(dish.id)) score += 4
+      if (answers.mood === 'Fresh' && (dish.tags.includes('Vegan') || ['field-mix-greens', 'utopia-good-life', 'seared-tuna-avocado-sandwich'].includes(dish.id))) score += 4
+      if (answers.mood === 'Comforting' && ['poutine', 'utopia-burger', 'classic-grilled-cheese', 'breakfast-burrito', 'mactopia'].includes(dish.id)) score += 4
       if (answers.mood === 'Bold' && dish.tags.includes('Spicy')) score += 4
       if (answers.mood === 'Familiar' && dish.tags.includes('Popular')) score += 4
       if (answers.time === 'Quick' && dish.tags.includes('Quick')) score += 3
-      if (answers.hunger === 'Feast' && dish.category === 'Mains') score += 2
+      if (answers.hunger === 'Feast' && ['Burritos', 'Burgers', 'Sandwiches', 'Brunch'].includes(dish.category)) score += 2
       return { dish, score }
     }).sort((a, b) => b.score - a.score).slice(0, 3)
   }, [answers])
@@ -59,10 +60,10 @@ export function App() {
   return <main className="site-shell">
     <div className="phone-frame">
       <header className="topbar">
-        <span className="eyebrow">DINNER TONIGHT · TABLE 12</span>
+        <span className="eyebrow">UTOPIA CAFE & GRILL · TORONTO</span>
         <button className="language" aria-label="Language selector">EN⌄</button>
       </header>
-      <div className="brand-row"><LogoMark /><div><h1>Utopia</h1><p>Kitchen open until 22:30 · High Street</p></div><button className="more" aria-label="More menu options">•••</button></div>
+      <div className="brand-row"><LogoMark /><div><h1>Utopia</h1><p>586 College St · public menu draft</p></div><button className="more" aria-label="More menu options">•••</button></div>
 
       {view === 'menu' && <MenuView shownDishes={shownDishes} activeFilters={activeFilters} search={search} onSearch={setSearch} onFilter={toggleFilter} onClear={() => setActiveFilters([])} onDish={chooseDish} onNavigate={navigate} />}
       {view === 'detail' && selected && <DetailView dish={selected} saved={shortlist.includes(selected.id)} onBack={() => navigate('menu')} onSave={() => toggleShortlist(selected.id)} onPairing={chooseDish} />}
@@ -77,22 +78,22 @@ export function App() {
         <button onClick={() => alert('Please ask your server - they will be happy to help.')}>Server</button>
       </nav>
     </div>
-    <p className="demo-note">Prototype content only - replace with approved restaurant data before launch.</p>
+    <p className="demo-note">Menu imported from public delivery listings. Confirm prices, allergens, availability, and nutrition with Utopia before launch.</p>
   </main>
 }
 
 function MenuView({ shownDishes, activeFilters, search, onSearch, onFilter, onClear, onDish, onNavigate }: { shownDishes: Dish[]; activeFilters: Tag[]; search: string; onSearch: (value: string) => void; onFilter: (tag: Tag) => void; onClear: () => void; onDish: (dish: Dish) => void; onNavigate: (view: View) => void }) {
   return <section className="view menu-view">
-    <div className="offer-strip"><span>TONIGHT</span><b>Seasonal feature — 20% off until 20:00</b></div>
+    <div className="offer-strip"><span>UTOPIA</span><b>Real menu draft · prices need restaurant approval before launch</b></div>
     <section className="hero-feature">
-      <div><span className="section-label">SEASONAL FEATURE</span><h2>Summer plates, made for slow evenings.</h2><p>One bright dish, one clean offer, no hard sell.</p><button className="text-link">Read the feature →</button></div>
-      <DishArt dish={dishes[0]} />
+      <div><span className="section-label">MOST ORDERED</span><h2>Burritos, burgers, brunch and comfort plates.</h2><p>Built from the public Utopia Cafe & Grill menu for the first working QR prototype.</p><button className="text-link">View source note →</button></div>
+      <DishArt dish={dishes.find((dish) => dish.id === 'utopia-burger') ?? dishes[0]} />
     </section>
     <div className="search-row"><label className="search"><span>⌕</span><input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Search the menu" aria-label="Search the menu" /></label></div>
     <div className="filter-scroll" aria-label="Menu filters">{filterTags.map((tag) => <button key={tag} className={activeFilters.includes(tag) ? 'filter active' : 'filter'} onClick={() => onFilter(tag)}>{tag}{activeFilters.includes(tag) && ' ×'}</button>)}{activeFilters.length > 0 && <button className="clear" onClick={onClear}>Clear all</button>}</div>
-    <div className="action-grid"><Button className="primary-action" onPress={() => document.getElementById('starters')?.scrollIntoView({ behavior: 'smooth' })}>Browse menu</Button><Button className="outline-action" onPress={() => onNavigate('choose')}>Help me choose</Button></div>
-    <section className="category-index"><span className="section-label">EXPLORE DINNER</span>{categories.map(([name, cue]) => <button key={name} onClick={() => document.getElementById(name.toLowerCase())?.scrollIntoView({ behavior: 'smooth' })}><strong>{name}</strong><span>{cue} · {dishes.filter((dish) => dish.category === name).length}</span></button>)}</section>
-    {categories.map(([category, cue]) => { const inCategory = shownDishes.filter((dish) => dish.category === category); return <section className="menu-category" id={category.toLowerCase()} key={category}><div className="category-heading"><div><h2>{category}</h2><p>{cue}</p></div><span>{inCategory.length} dishes</span></div>{inCategory.length ? inCategory.map((dish) => <DishRow dish={dish} onClick={() => onDish(dish)} key={dish.id} />) : <p className="empty">No dishes match these filters. Try clearing one.</p>}</section> })}
+    <div className="action-grid"><Button className="primary-action" onPress={() => document.getElementById('appetizers')?.scrollIntoView({ behavior: 'smooth' })}>Browse menu</Button><Button className="outline-action" onPress={() => onNavigate('choose')}>Help me choose</Button></div>
+    <section className="category-index"><span className="section-label">EXPLORE MENU</span>{categories.map(([name, cue]) => <button key={name} onClick={() => document.getElementById(categoryId(name))?.scrollIntoView({ behavior: 'smooth' })}><strong>{name}</strong><span>{cue} · {dishes.filter((dish) => dish.category === name).length}</span></button>)}</section>
+    {categories.map(([category, cue]) => { const inCategory = shownDishes.filter((dish) => dish.category === category); return <section className="menu-category" id={categoryId(category)} key={category}><div className="category-heading"><div><h2>{category}</h2><p>{cue}</p></div><span>{inCategory.length} items</span></div>{inCategory.length ? inCategory.map((dish) => <DishRow dish={dish} onClick={() => onDish(dish)} key={dish.id} />) : <p className="empty">No items match these filters. Try clearing one.</p>}</section> })}
   </section>
 }
 
@@ -100,7 +101,7 @@ function DishRow({ dish, onClick, why }: { dish: Dish; onClick: () => void; why?
 
 function DetailView({ dish, saved, onBack, onSave, onPairing }: { dish: Dish; saved: boolean; onBack: () => void; onSave: () => void; onPairing: (dish: Dish) => void }) {
   const pair = dish.pairing ? dishes.find((item) => item.id === dish.pairing?.id) : undefined
-  return <section className="view detail-view"><button className="back" onClick={onBack}>← Menu</button><DishArt dish={dish} large /><div className="detail-title"><div><span className="section-label">{dish.category.toUpperCase()}</span><h2>{dish.name}</h2></div><b>{money(dish.price)}</b></div><p className="detail-summary">{dish.summary}</p><Tags tags={dish.tags} /><section className="detail-block"><span className="section-label">WHAT IT TASTES LIKE</span><p>{dish.description}</p></section><section className="detail-block allergy"><span className="section-label">DIETARY & ALLERGY</span><p>Contains ingredients of concern listed plainly. This is not a safety guarantee; please speak to your server about allergies.</p><button className="text-link">Please speak to your server about allergies →</button></section><section className="nutrition"><span className="section-label">NUTRITION AT A GLANCE</span><div><b>{dish.calories}<small>kcal</small></b><b>{dish.protein}g<small>protein</small></b><b>{dish.carbs}g<small>carbs</small></b><b>{dish.fat}g<small>fat</small></b></div></section>{dish.customisations && <section className="detail-block"><span className="section-label">MAKE IT YOURS</span>{dish.customisations.map((item) => <button className="custom-option" key={item}>{item}<span>Choose →</span></button>)}</section>}{pair && <section className="pairing"><span className="section-label">GOES WELL WITH</span><button onClick={() => onPairing(pair)}><DishArt dish={pair} /><span><b>{pair.name}</b><p>{dish.pairing?.reason}</p></span><strong>{money(pair.price)}</strong></button></section>}<Button className="primary-action save-button" onPress={onSave} isDisabled={!dish.available}>{saved ? 'Saved to shortlist' : 'Add to shortlist'}</Button></section>
+  return <section className="view detail-view"><button className="back" onClick={onBack}>← Menu</button><DishArt dish={dish} large /><div className="detail-title"><div><span className="section-label">{dish.category.toUpperCase()}</span><h2>{dish.name}</h2></div><b>{money(dish.price)}</b></div><p className="detail-summary">{dish.summary}</p><Tags tags={dish.tags} /><section className="detail-block"><span className="section-label">MENU DESCRIPTION</span><p>{dish.description}</p></section><section className="detail-block allergy"><span className="section-label">DIETARY & ALLERGY</span><p>Dietary tags are interpreted from public menu text and must be checked with the restaurant before launch.</p><button className="text-link">Please speak to your server about allergies →</button></section><section className="nutrition"><span className="section-label">ESTIMATED NUTRITION</span><div><b>{dish.calories}<small>kcal</small></b><b>{dish.protein}g<small>protein</small></b><b>{dish.carbs}g<small>carbs</small></b><b>{dish.fat}g<small>fat</small></b></div></section>{dish.customisations && <section className="detail-block"><span className="section-label">MAKE IT YOURS</span>{dish.customisations.map((item) => <button className="custom-option" key={item}>{item}<span>Choose →</span></button>)}</section>}{pair && <section className="pairing"><span className="section-label">GOES WELL WITH</span><button onClick={() => onPairing(pair)}><DishArt dish={pair} /><span><b>{pair.name}</b><p>{dish.pairing?.reason}</p></span><strong>{money(pair.price)}</strong></button></section>}<Button className="primary-action save-button" onPress={onSave} isDisabled={!dish.available}>{saved ? 'Saved to shortlist' : 'Add to shortlist'}</Button></section>
 }
 
 function ChooseView({ answers, question, recommendations, onAnswer, onRestart, onDish, onSaveAll }: { answers: { hunger?: string; mood?: Mood; dietary?: Tag; time?: string }; question: number; recommendations: Dish[]; onAnswer: (key: 'hunger' | 'mood' | 'dietary' | 'time', value: string) => void; onRestart: () => void; onDish: (dish: Dish) => void; onSaveAll: () => void }) {
@@ -108,12 +109,12 @@ function ChooseView({ answers, question, recommendations, onAnswer, onRestart, o
   const steps = [
     { key: 'hunger' as const, title: 'How hungry are you?', help: 'There is no wrong answer. You can change it later.', choices: ['Light', 'Proper', 'Feast'] },
     { key: 'mood' as const, title: 'What sounds good right now?', help: 'Pick the one that fits - you can change it later.', choices: ['Fresh', 'Comforting', 'Bold', 'Familiar'] },
-    { key: 'dietary' as const, title: 'Anything we should work around?', help: 'We only show confirmed menu tags.', choices: ['Vegan', 'Gluten-free', 'Halal', 'No preference'] },
+    { key: 'dietary' as const, title: 'Anything we should work around?', help: 'We only show tags interpreted from the public menu.', choices: ['Vegan', 'Vegetarian', 'Gluten-free', 'No preference'] },
     { key: 'time' as const, title: 'How much time do you have?', help: 'We will prioritise dishes ready sooner.', choices: ['Quick', 'No rush'] },
   ][question]
   return <section className="view choose-view"><span className="section-label">FIND MY PLATE · {question + 1} OF 4</span><div className="progress"><i style={{ width: `${(question + 1) * 25}%` }} /></div><h2>{steps.title}</h2><p className="muted">{steps.help}</p><div className="choice-list">{steps.choices.map((choice) => <button key={choice} onClick={() => onAnswer(steps.key, choice)}>{choice}<span>→</span></button>)}</div><p className="privacy-note">No sign-in. Nothing is saved after you leave, except your shortlist on this device.</p></section>
 }
 
-function MoodView({ onMood }: { onMood: (mood: Mood) => void }) { return <section className="view mood-view"><span className="section-label">BROWSE BY MOOD</span><h2>What sounds right, right now?</h2><p className="muted">No questions, no data. Just a more intuitive way to browse.</p><div className="mood-grid">{(['Fresh', 'Comforting', 'Bold', 'Familiar'] as Mood[]).map((mood, index) => <button key={mood} onClick={() => onMood(mood)}><span className={`mood-art tone-${index}`} aria-hidden="true">✦</span><b>{mood === 'Fresh' ? 'Bright & fresh' : mood === 'Comforting' ? 'Big comfort' : mood === 'Bold' ? 'Spicy adventure' : 'Something familiar'}</b><small>{[6, 8, 5, 7][index]} dishes</small></button>)}</div></section> }
+function MoodView({ onMood }: { onMood: (mood: Mood) => void }) { return <section className="view mood-view"><span className="section-label">BROWSE BY MOOD</span><h2>What sounds right, right now?</h2><p className="muted">No questions, no data. Just a more intuitive way to browse.</p><div className="mood-grid">{(['Fresh', 'Comforting', 'Bold', 'Familiar'] as Mood[]).map((mood, index) => <button key={mood} onClick={() => onMood(mood)}><span className={`mood-art tone-${index}`} aria-hidden="true">✦</span><b>{mood === 'Fresh' ? 'Bright & fresh' : mood === 'Comforting' ? 'Big comfort' : mood === 'Bold' ? 'Spicy adventure' : 'Something familiar'}</b><small>{[8, 18, 15, 12][index]} items</small></button>)}</div></section> }
 
-function ShortlistView({ items, onRemove }: { items: Dish[]; onRemove: (id: string) => void }) { const total = items.reduce((sum, dish) => sum + dish.price, 0); return <section className="view shortlist-view"><span className="section-label">YOUR SHORTLIST · TABLE 12</span><h2>Ready to order</h2><p className="muted">Show this to your server. Nothing is sent to the kitchen.</p>{items.length ? <><div className="shortlist-items">{items.map((dish) => <article key={dish.id}><div><b>{dish.name}</b><p>{dish.summary}</p><span>Order-ready</span></div><strong>{money(dish.price)}</strong><button onClick={() => onRemove(dish.id)} aria-label={`Remove ${dish.name}`}>×</button></article>)}</div><div className="order-total"><b>Order-ready items</b><strong>{money(total)}</strong><p>Offer price applied where eligible.</p></div><div className="server-note"><span>NOTE FOR THE SERVER</span><p>Ask about allergy options before ordering.</p></div><Button className="primary-action show-server" onPress={() => alert('Your server will be with you shortly.')}>Show to server</Button></> : <div className="empty-shortlist"><LogoMark /><h3>Your shortlist is empty</h3><p>Save dishes to keep a calm, order-ready list.</p></div>}</section> }
+function ShortlistView({ items, onRemove }: { items: Dish[]; onRemove: (id: string) => void }) { const total = items.reduce((sum, dish) => sum + dish.price, 0); return <section className="view shortlist-view"><span className="section-label">YOUR SHORTLIST</span><h2>Ready to order</h2><p className="muted">Show this to your server. Nothing is sent to the kitchen.</p>{items.length ? <><div className="shortlist-items">{items.map((dish) => <article key={dish.id}><div><b>{dish.name}</b><p>{dish.summary}</p><span>Order-ready</span></div><strong>{money(dish.price)}</strong><button onClick={() => onRemove(dish.id)} aria-label={`Remove ${dish.name}`}>×</button></article>)}</div><div className="order-total"><b>Order-ready items</b><strong>{money(total)}</strong><p>Prices are draft values from public listings.</p></div><div className="server-note"><span>NOTE FOR THE SERVER</span><p>Ask about allergy options before ordering.</p></div><Button className="primary-action show-server" onPress={() => alert('Your server will be with you shortly.')}>Show to server</Button></> : <div className="empty-shortlist"><LogoMark /><h3>Your shortlist is empty</h3><p>Save dishes to keep a calm, order-ready list.</p></div>}</section> }
