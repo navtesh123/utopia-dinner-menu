@@ -38,7 +38,7 @@ import {
   type Tag,
 } from './data'
 
-type View = 'menu' | 'choose' | 'moods' | 'shortlist' | 'detail' | 'search' | 'chef'
+type View = 'menu' | 'choose' | 'moods' | 'shortlist' | 'search' | 'chef'
 type Mood = 'Fresh' | 'Comforting' | 'Bold' | 'Familiar'
 type Hunger = 'Light' | 'Proper' | 'Feast'
 type TimePreference = 'Quick' | 'No rush'
@@ -316,7 +316,7 @@ const ui: Record<Locale, AppCopy> = {
     },
     cart: {
       itemsAdded: (count: number) => `${count} ${count === 1 ? 'Item' : 'Items'} added`,
-      viewCart: 'View Cart',
+      viewCart: 'View Shortlist',
     },
     sourceNote: 'Menu imported from public delivery listings. Confirm prices, allergens, availability, and nutrition with Utopia before launch.',
     menu: {
@@ -491,7 +491,7 @@ const ui: Record<Locale, AppCopy> = {
     },
     cart: {
       itemsAdded: (count: number) => `${count} ${count === 1 ? 'Article ajoute' : 'Articles ajoutes'}`,
-      viewCart: 'Voir le panier',
+      viewCart: 'Voir la liste',
     },
     sourceNote: 'Menu importe a partir de listings publics de livraison. Confirmez les prix, allergenes, disponibilites et valeurs nutritives avec Utopia avant la mise en ligne.',
     menu: {
@@ -788,6 +788,7 @@ function Tags({ tags, locale, max }: { tags: Tag[]; locale: Locale; max?: number
 export function App() {
   const [view, setView] = useState<View>('menu')
   const previousView = useRef<View>('menu')
+  const scrollPositionRef = useRef<number>(0)
   const [selected, setSelected] = useState<Dish | null>(null)
   const [activeFilters, setActiveFilters] = useState<Tag[]>([])
   const [search, setSearch] = useState('')
@@ -828,6 +829,8 @@ export function App() {
   const [answers, setAnswers] = useState<{ hunger?: Hunger; mood?: Mood; dietary?: DietaryPreference; time?: TimePreference }>({})
   const [question, setQuestion] = useState(0)
   const [serverMessage, setServerMessage] = useState<ServerMessage | null>(null)
+  const [showShortlistModal, setShowShortlistModal] = useState(false)
+  const [showDetailSheet, setShowDetailSheet] = useState(false)
 
   const [heroSlide, setHeroSlide] = useState(0)
 
@@ -840,6 +843,10 @@ export function App() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', meal === 'Dinner')
   }, [meal])
+
+  useEffect(() => {
+    document.body.style.overflow = showShortlistModal || showDetailSheet ? 'hidden' : ''
+  }, [showShortlistModal, showDetailSheet])
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -878,8 +885,9 @@ export function App() {
   }
 
   const chooseDish = (dish: Dish) => {
+    scrollPositionRef.current = window.scrollY
     setSelected(dish)
-    navigate('detail')
+    setShowDetailSheet(true)
   }
 
   const ensureDishCustomization = (id: string) => {
@@ -1104,24 +1112,6 @@ export function App() {
             strings={copy.chef}
           />
         )}
-        {view === 'detail' && selected && (
-          <DetailView
-            dish={selected}
-            customization={dishCustomizations[selected.id] ?? defaultCustomizationFor(selected)}
-            locale={language}
-            onAllergy={() => showServerMessage({
-              title: copy.allergyReminder.title,
-              description: copy.allergyReminder.description,
-              status: 'warning',
-            })}
-            onBack={() => navigate('menu')}
-            onPairing={chooseDish}
-            onSave={() => toggleShortlist(selected.id)}
-            onCustomizationChange={(customization) => updateDishCustomization(selected.id, customization)}
-            saved={Boolean(quantities[selected.id])}
-            strings={copy.detail}
-          />
-        )}
         {view === 'choose' && (
           <ChooseView
             answers={answers}
@@ -1136,6 +1126,7 @@ export function App() {
               setAnswers({})
               setQuestion(0)
             }}
+            onClose={() => navigate('menu')}
             onSaveAll={() => {
               setQuantities(Object.fromEntries(recommendations.map(({ dish }) => [dish.id, 1])))
               setDishCustomizations((current) => ({
@@ -1187,8 +1178,8 @@ export function App() {
           />
         )}
 
-        {shortlistCount > 0 && view !== 'shortlist' && view !== 'search' && view !== 'chef' && (
-          <button className="cart-banner" type="button" onClick={() => navigate('shortlist')}>
+        {shortlistCount > 0 && view !== 'search' && view !== 'chef' && (
+          <button className="cart-banner" type="button" onClick={() => setShowShortlistModal(true)}>
             <span className="cart-banner-text">{copy.cart.itemsAdded(shortlistCount)}</span>
             <span className="cart-banner-button">
               {copy.cart.viewCart}
@@ -1197,25 +1188,79 @@ export function App() {
           </button>
         )}
 
-        {view !== 'search' && view !== 'chef' && (
-        <nav className="bottom-nav" aria-label={copy.nav.primary}>
-          <Button
-            className="nav-button"
-            aria-current={view === 'menu' || view === 'detail' ? 'page' : undefined}
-            size="sm"
-            variant={view === 'menu' || view === 'detail' ? 'secondary' : 'ghost'}
-            onPress={() => navigate('menu')}
-          >
-            <Icon className="nav-icon" name="menu" />
-            <span>{copy.nav.menu}</span>
-          </Button>
-        </nav>
+        {showShortlistModal && (
+          <>
+            <div className="modal-overlay" onClick={() => setShowShortlistModal(false)} />
+            <div className="bottom-sheet">
+              <div className="bottom-sheet-handle" />
+              <button className="bottom-sheet-close" type="button" onClick={() => setShowShortlistModal(false)} aria-label={copy.dismissMessage}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6l-12 12m0-12l12 12" />
+                </svg>
+              </button>
+              <ShortlistView
+                items={shortlistItems}
+                customizations={dishCustomizations}
+                locale={language}
+                quantities={quantities}
+                onRemove={toggleShortlist}
+                onServer={() => {
+                  showServerMessage({
+                    title: copy.readyForServer.title,
+                    description: copy.readyForServer.description,
+                    status: 'accent',
+                  })
+                  setShowShortlistModal(false)
+                }}
+                strings={copy.shortlist}
+              />
+            </div>
+          </>
         )}
-      </div>
 
-      <p className="demo-note" id="source-note">
-        {copy.sourceNote}
-      </p>
+        {showDetailSheet && selected && (
+          <>
+            <div className="modal-overlay" onClick={() => {
+              setShowDetailSheet(false)
+              window.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' })
+            }} />
+            <div className="bottom-sheet">
+              <button className="bottom-sheet-close" type="button" onClick={() => {
+                setShowDetailSheet(false)
+                window.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' })
+              }} aria-label={copy.dismissMessage}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6l-12 12m0-12l12 12" />
+                </svg>
+              </button>
+              <DetailView
+                dish={selected}
+                customization={dishCustomizations[selected.id] ?? defaultCustomizationFor(selected)}
+                locale={language}
+                onAllergy={() => showServerMessage({
+                  title: copy.allergyReminder.title,
+                  description: copy.allergyReminder.description,
+                  status: 'warning',
+                })}
+                onBack={() => {
+                  setShowDetailSheet(false)
+                  window.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' })
+                }}
+                onPairing={chooseDish}
+                onSave={() => {
+                  toggleShortlist(selected.id)
+                  setShowDetailSheet(false)
+                  window.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' })
+                }}
+                onCustomizationChange={(customization) => updateDishCustomization(selected.id, customization)}
+                saved={Boolean(quantities[selected.id])}
+                strings={copy.detail}
+              />
+            </div>
+          </>
+        )}
+
+      </div>
     </main>
   )
 }
@@ -1544,14 +1589,14 @@ function MenuView({ shownDishes, activeFilters, onFilters, onClear, onDish, onCh
       <section className="discovery-banner" onClick={onChoose}>
         <div className="discovery-banner-content">
           <div className="discovery-banner-copy">
-            <h3>{locale === 'FR' ? 'Vous hésitez?' : "Can't decide?"}</h3>
+            <h3>{locale === 'FR' ? 'Besoin d\'inspiration?' : "Find your next favorite"}</h3>
             <p>
               {locale === 'FR'
-                ? 'Répondez à quelques questions rapides et découvrez les plats parfaits pour vous'
-                : "Answer a few quick questions and we'll recommend the perfect dishes for your mood"}
+                ? 'Dites-nous ce qui vous inspire et nous trouverons le plat parfait pour vos envies'
+                : "Tell us your vibe and we'll find the dish that matches your hunger"}
             </p>
             <span className="discovery-banner-cta">
-              {locale === 'FR' ? 'Découvrir →' : 'Get started →'}
+              {locale === 'FR' ? 'Commencer →' : 'Explore →'}
             </span>
           </div>
           <div className="discovery-banner-art" aria-hidden="true">
@@ -1685,8 +1730,7 @@ function DetailView({ dish, customization, saved, onBack, onSave, onCustomizatio
   }
 
   return (
-    <section className="view detail-view">
-      <Button size="sm" variant="ghost" onPress={onBack}>← {strings.back}</Button>
+    <section className="view detail-view detail-sheet-view">
       <DishArt dish={dish} large locale={locale} />
 
       <div className="detail-title">
@@ -1699,7 +1743,6 @@ function DetailView({ dish, customization, saved, onBack, onSave, onCustomizatio
       <p className="detail-summary">{localize(dish.summary, locale)}</p>
       <Tags tags={dish.tags} locale={locale} />
 
-      <Separator />
       <section className="nutrition">
         <span className="section-label">{strings.nutrition}</span>
         <div>
@@ -1710,14 +1753,13 @@ function DetailView({ dish, customization, saved, onBack, onSave, onCustomizatio
         </div>
       </section>
 
-      <Separator />
       <article className="review-summary-card">
+        <h3 className="review-summary-title">{strings.reviewTitle}</h3>
         <div className="review-summary-tags">
           {review.tags.map((tag) => (
             <span className="review-tag" key={tag.EN}>{localize(tag, locale)}</span>
           ))}
         </div>
-        <h3 className="review-summary-title">{strings.reviewTitle}</h3>
         <ul className="review-summary-points">
           {review.points.map((point) => (
             <li key={point.EN}>
@@ -1731,7 +1773,6 @@ function DetailView({ dish, customization, saved, onBack, onSave, onCustomizatio
 
       {dish.customizations && (
         <>
-          <Separator />
           <section className="detail-block customisations">
             <span className="section-label">{strings.customisations}</span>
             {dish.customizations.baseOptions?.map((group) => (
@@ -1825,12 +1866,8 @@ function DetailView({ dish, customization, saved, onBack, onSave, onCustomizatio
       )}
 
       <div className="sticky-action">
-        <div className="sticky-total">
-          <span>{strings.totalWithCustomizations}</span>
-          <strong>{money(totalPrice)}</strong>
-        </div>
         <Button fullWidth isDisabled={!dish.available} onPress={onSave}>
-          {saved ? strings.saved : strings.add}
+          {saved ? strings.saved : `${strings.add.split(' ')[0]} · ${money(totalPrice)}`}
         </Button>
       </div>
     </section>
@@ -1846,14 +1883,20 @@ type ChooseViewProps = {
   onBrowseMoods: () => void
   onDish: (dish: Dish) => void
   onSaveAll: () => void
+  onClose: () => void
   locale: Locale
   strings: ChooseStrings
 }
 
-function ChooseView({ answers, question, recommendations, onAnswer, onRestart, onBrowseMoods, onDish, onSaveAll, locale, strings }: ChooseViewProps) {
+function ChooseView({ answers, question, recommendations, onAnswer, onRestart, onBrowseMoods, onDish, onSaveAll, onClose, locale, strings }: ChooseViewProps) {
   if (question >= 4) {
     return (
       <section className="view choose-view">
+        <button className="choose-close-button" type="button" onClick={onClose} aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M18 6l-12 12m0-12l12 12" />
+          </svg>
+        </button>
         <span className="section-label">{strings.resultsLabel}</span>
         <h2>{strings.resultsTitle}</h2>
         <p className="muted">{strings.resultsBody}</p>
@@ -1881,6 +1924,11 @@ function ChooseView({ answers, question, recommendations, onAnswer, onRestart, o
 
   return (
     <section className="view choose-view">
+      <button className="choose-close-button" type="button" onClick={onClose} aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M18 6l-12 12m0-12l12 12" />
+        </svg>
+      </button>
       <span className="section-label">{strings.introLabel} · {question + 1} / 4</span>
       <div className="progress-wrap">
         <ProgressBar aria-label={strings.progress(question + 1, 4)} maxValue={4} minValue={0} size="sm" value={question + 1}>
@@ -1998,7 +2046,6 @@ function ShortlistView({
                           ))}
                         </div>
                       )}
-                      <Chip color="success" size="sm" variant="soft">{strings.orderReady}</Chip>
                     </div>
                     <div className="shortlist-price">
                       <strong>{money(unitPrice * quantity)}</strong>
@@ -2014,17 +2061,6 @@ function ShortlistView({
           <div className="order-total">
             <strong>{strings.totalLabel}</strong>
             <strong>{money(total)}</strong>
-            <p>{strings.totalNote}</p>
-          </div>
-          <Alert status="warning">
-            <Alert.Indicator />
-            <Alert.Content>
-              <Alert.Title>{strings.alertTitle}</Alert.Title>
-              <Alert.Description>{strings.alertBody}</Alert.Description>
-            </Alert.Content>
-          </Alert>
-          <div className="shortlist-action">
-            <Button fullWidth onPress={onServer}>{strings.showToServer}</Button>
           </div>
         </>
       ) : (
