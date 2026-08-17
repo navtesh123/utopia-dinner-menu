@@ -17,7 +17,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
 } from '@heroui/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   categories,
   categoryCues,
@@ -25,14 +25,18 @@ import {
   dishes,
   filterTags,
   localize,
+  mostLovedDishes,
+  reviewSummaryFor,
   tagLabels,
   type Category,
   type Dish,
   type Locale,
+  type LocalizedText,
+  type MostLovedDish,
   type Tag,
 } from './data'
 
-type View = 'menu' | 'choose' | 'moods' | 'shortlist' | 'detail'
+type View = 'menu' | 'choose' | 'moods' | 'shortlist' | 'detail' | 'search' | 'chef'
 type Mood = 'Fresh' | 'Comforting' | 'Bold' | 'Familiar'
 type Hunger = 'Light' | 'Proper' | 'Feast'
 type TimePreference = 'Quick' | 'No rush'
@@ -59,6 +63,8 @@ type MenuStrings = {
   itemCount: (count: number) => string
   empty: string
   unavailable: string
+  heroAdd: string
+  heroKicker: string
 }
 
 type DetailStrings = {
@@ -75,6 +81,8 @@ type DetailStrings = {
   pairingTitle: string
   saved: string
   add: string
+  reviewTitle: string
+  reviewSource: string
 }
 
 type ChooseStep = {
@@ -124,33 +132,75 @@ type ShortlistStrings = {
   emptyBody: string
 }
 
+type ChefStrings = {
+  sectionLabel: string
+  sectionTitle: string
+  sectionBody: string
+  cardCta: string
+  back: string
+  profileLabel: string
+  storyTitle: string
+  recommendationsTitle: string
+  recommendationBody: string
+}
+
 type AppCopy = {
   languageLabel: string
   languagePlaceholder: string
   languageOptions: string
+  languageNames: Record<string, string>
+  languageSoon: string
   restaurantName: string
   address: string
   mealLabel: string
   mealOptions: string
   meals: Record<MealPeriod, string>
+  hoursLabel: string
+  photosLabel: string
   draftLabel: string
   dismissMessage: string
   allergyReminder: { title: string; description: string }
   readyForServer: { title: string; description: string }
-  serverHelp: { title: string; description: string }
-  nav: { primary: string; menu: string; choose: string; shortlist: string; server: string }
+  nav: { primary: string; menu: string; choose: string; shortlist: string }
   sourceNote: string
   menu: MenuStrings
   detail: DetailStrings
   choose: ChooseStrings
   moods: MoodStrings
   shortlist: ShortlistStrings
+  chef: ChefStrings
 }
 
-const languages: Locale[] = ['EN', 'FR']
+const languageMenu = [
+  { id: 'EN', available: true },
+  { id: 'FR', available: true },
+  { id: 'ZH', available: false },
+  { id: 'ES', available: false },
+] as const
 const meals: MealPeriod[] = ['Dinner', 'Lunch', 'Brunch']
+const mealHours: Record<MealPeriod, string> = {
+  Brunch: '8am - 12pm',
+  Lunch: '12pm - 4pm',
+  Dinner: '5pm - 10pm',
+}
 const heroLogoSrc = '/utopia-logo.png?v=2'
-const heroBackgroundSrc = ''
+// Placeholder hero photos - swap these with final restaurant photography when available.
+const heroPhotos = [
+  '/dishes/utopia-burger.jpg',
+  '/dishes/shakshouka.jpg',
+  '/dishes/poutine.jpg',
+]
+const heroSlideInterval = 5000
+const chefProfile = {
+  name: 'Maya Laurent',
+  role: 'Chef, Utopia Cafe & Grill',
+  image: 'https://images.unsplash.com/photo-1763685805275-1845419c01a1?fm=jpg&q=80&w=1200&auto=format&fit=crop',
+  story: {
+    EN: 'Maya cooks like Utopia serves the neighborhood: generous, fast-moving, and full of color. Her menu picks lean into the cafe classics that regulars come back for after work, before a show, or when the table wants a little bit of everything.',
+    FR: 'Maya cuisine comme Utopia accueille le quartier : avec generosite, energie et couleur. Ses choix mettent en valeur les classiques du cafe que les habitues reprennent apres le travail, avant un spectacle ou quand la table veut partager un peu de tout.',
+  },
+  recommendations: ['utopia-burger', 'poutine', 'fish-tacos'],
+}
 const money = (value: number) => `CA$${value.toFixed(2)}`
 const categoryId = (category: Category) => category.toLowerCase().replace(/\s+/g, '-')
 const filterTagIcons: Record<Tag, string> = {
@@ -175,6 +225,13 @@ const ui: Record<Locale, AppCopy> = {
     languageLabel: 'Language selector',
     languagePlaceholder: 'Language',
     languageOptions: 'Language options',
+    languageNames: {
+      EN: 'English',
+      FR: 'French',
+      ZH: 'Mandarin',
+      ES: 'Spanish',
+    },
+    languageSoon: 'Soon',
     restaurantName: 'Utopia cafe & grill',
     address: '586 college st.',
     mealLabel: 'Meal period',
@@ -184,6 +241,8 @@ const ui: Record<Locale, AppCopy> = {
       Lunch: 'Lunch',
       Brunch: 'Brunch',
     },
+    hoursLabel: 'Open',
+    photosLabel: 'Restaurant photo',
     draftLabel: 'public menu draft',
     dismissMessage: 'Dismiss message',
     allergyReminder: {
@@ -194,16 +253,11 @@ const ui: Record<Locale, AppCopy> = {
       title: 'Ready for your server',
       description: 'Show this shortlist to your server when you are ready to order.',
     },
-    serverHelp: {
-      title: 'Your server can help',
-      description: 'Please ask your server. They will be happy to help.',
-    },
     nav: {
       primary: 'Primary navigation',
       menu: 'Menu',
       choose: 'Choose',
       shortlist: 'Shortlist',
-      server: 'Server',
     },
     sourceNote: 'Menu imported from public delivery listings. Confirm prices, allergens, availability, and nutrition with Utopia before launch.',
     menu: {
@@ -221,6 +275,8 @@ const ui: Record<Locale, AppCopy> = {
       itemCount: (count: number) => `${count} items`,
       empty: 'No items match these filters. Try clearing one.',
       unavailable: 'Unavailable today',
+      heroAdd: 'Add',
+      heroKicker: 'Seasonal special',
     },
     detail: {
       back: 'Menu',
@@ -236,6 +292,8 @@ const ui: Record<Locale, AppCopy> = {
       pairingTitle: 'Goes well with',
       saved: 'Saved to shortlist',
       add: 'Add to shortlist',
+      reviewTitle: 'Review summary',
+      reviewSource: 'Based on user reviews from Google Maps, Yelp, etc.',
     },
     choose: {
       introLabel: 'FIND MY PLATE',
@@ -316,11 +374,29 @@ const ui: Record<Locale, AppCopy> = {
       emptyTitle: 'Your shortlist is empty',
       emptyBody: 'Save dishes to keep a calm, order-ready list.',
     },
+    chef: {
+      sectionLabel: 'MEET THE CHEF RECOMMENDATION',
+      sectionTitle: "Maya's picks for tonight",
+      sectionBody: 'A quick guide from the kitchen to the dishes that feel most like Utopia.',
+      cardCta: 'Read the story',
+      back: 'Menu',
+      profileLabel: 'CHEF STORY',
+      storyTitle: 'A neighborhood menu with a little spark',
+      recommendationsTitle: "Maya's top recommendations",
+      recommendationBody: 'Three dishes she would send first when someone wants the full Utopia mood.',
+    },
   },
   FR: {
     languageLabel: 'Selecteur de langue',
     languagePlaceholder: 'Langue',
     languageOptions: 'Options de langue',
+    languageNames: {
+      EN: 'Anglais',
+      FR: 'Francais',
+      ZH: 'Mandarin',
+      ES: 'Espagnol',
+    },
+    languageSoon: 'Bientot',
     restaurantName: 'Utopia cafe & grill',
     address: '586 college st.',
     mealLabel: 'Service',
@@ -330,6 +406,8 @@ const ui: Record<Locale, AppCopy> = {
       Lunch: 'Dejeuner',
       Brunch: 'Brunch',
     },
+    hoursLabel: 'Ouvert',
+    photosLabel: 'Photo du restaurant',
     draftLabel: 'ebauche de menu public',
     dismissMessage: 'Fermer le message',
     allergyReminder: {
@@ -340,16 +418,11 @@ const ui: Record<Locale, AppCopy> = {
       title: 'Pret pour votre serveur',
       description: 'Montrez cette liste courte a votre serveur lorsque vous etes pret a commander.',
     },
-    serverHelp: {
-      title: 'Votre serveur peut aider',
-      description: 'Demandez a votre serveur. Il sera heureux de vous aider.',
-    },
     nav: {
       primary: 'Navigation principale',
       menu: 'Menu',
       choose: 'Choisir',
       shortlist: 'Liste courte',
-      server: 'Serveur',
     },
     sourceNote: 'Menu importe a partir de listings publics de livraison. Confirmez les prix, allergenes, disponibilites et valeurs nutritives avec Utopia avant la mise en ligne.',
     menu: {
@@ -367,6 +440,8 @@ const ui: Record<Locale, AppCopy> = {
       itemCount: (count: number) => `${count} articles`,
       empty: 'Aucun article ne correspond a ces filtres. Essayez d en retirer un.',
       unavailable: 'Indisponible aujourd hui',
+      heroAdd: 'Ajouter',
+      heroKicker: 'Special saisonnier',
     },
     detail: {
       back: 'Menu',
@@ -382,6 +457,8 @@ const ui: Record<Locale, AppCopy> = {
       pairingTitle: 'Se marie bien avec',
       saved: 'Ajoute a la liste courte',
       add: 'Ajouter a la liste courte',
+      reviewTitle: 'Resume des avis',
+      reviewSource: 'D apres les avis des clients sur Google Maps, Yelp, etc.',
     },
     choose: {
       introLabel: 'TROUVEZ MON ASSIETTE',
@@ -467,6 +544,17 @@ const ui: Record<Locale, AppCopy> = {
       emptyTitle: 'Votre liste courte est vide',
       emptyBody: 'Enregistrez des plats pour garder une liste calme et prete a commander.',
     },
+    chef: {
+      sectionLabel: 'RECOMMANDATION DU CHEF',
+      sectionTitle: 'Les choix de Maya pour ce soir',
+      sectionBody: 'Un guide rapide de la cuisine vers les plats qui ressemblent le plus a Utopia.',
+      cardCta: 'Lire son histoire',
+      back: 'Menu',
+      profileLabel: 'HISTOIRE DU CHEF',
+      storyTitle: 'Un menu de quartier avec une touche vive',
+      recommendationsTitle: 'Les meilleures recommandations de Maya',
+      recommendationBody: 'Trois plats qu elle proposerait d abord pour retrouver toute l ambiance Utopia.',
+    },
   },
 }
 
@@ -476,6 +564,12 @@ function Icon({ name, className }: { name: string; className?: string }) {
       return (
         <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
           <path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+        </svg>
+      )
+    case 'back':
+      return (
+        <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
         </svg>
       )
     case 'magic':
@@ -490,10 +584,10 @@ function Icon({ name, className }: { name: string; className?: string }) {
           <path d="M7 5.5A1.5 1.5 0 0 1 8.5 4h7A1.5 1.5 0 0 1 17 5.5V20l-5-3-5 3V5.5Z" fill="none" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" />
         </svg>
       )
-    case 'bell':
+    case 'heart':
       return (
         <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M8 17h8m-6 2a2 2 0 0 0 4 0m4-2H6c1.1-1.1 2-2.8 2-6a4 4 0 1 1 8 0c0 3.2.9 4.9 2 6Z" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+          <path d="M12 21c-1.2-1-5-4.6-5-8.5A3.5 3.5 0 0 1 10.5 9a3.5 3.5 0 0 1 1.5.35 3.5 3.5 0 0 1 1.5-.35 3.5 3.5 0 0 1 3.5 3.5c0 3.9-3.8 7.5-5 8.5Z" fill="currentColor" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" />
         </svg>
       )
     case 'leaf':
@@ -544,6 +638,12 @@ function Icon({ name, className }: { name: string; className?: string }) {
           <path d="M9 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm8 1a2.5 2.5 0 1 0 0-5m-8 12v-1a4 4 0 0 1 4-4h-8a4 4 0 0 0-4 4v1m16 0v-1c0-1.7-1-3.2-2.5-3.8" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
         </svg>
       )
+    case 'thumbs-up':
+      return (
+        <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8 11v9H5.5A1.5 1.5 0 0 1 4 18.5v-6A1.5 1.5 0 0 1 5.5 11H8Zm0 0 2.2-5.2A2 2 0 0 1 12 4.7c.9 0 1.6.7 1.6 1.6V9h4.2a2 2 0 0 1 2 2.3l-1 7A2 2 0 0 1 16.8 20H8" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+        </svg>
+      )
     case 'spark':
     default:
       return (
@@ -571,13 +671,11 @@ function Wordmark() {
 }
 
 function DishArt({ dish, locale, large = false }: { dish: Dish; locale: Locale; large?: boolean }) {
+  const label = `${locale === 'FR' ? 'Photo' : 'Photo'} ${localize(dish.name, locale)}`
+
   return (
-    <div
-      className={`dish-art ${dish.colour} ${large ? 'large' : ''}`}
-      aria-label={`${locale === 'FR' ? 'Illustration' : 'Illustration'} ${localize(dish.name, locale)}`}
-      role="img"
-    >
-      <span>✦</span>
+    <div className={`dish-art ${dish.colour} ${large ? 'large' : ''}`} aria-label={label} role="img">
+      <img alt="" className="dish-art-image" src={dish.image} />
     </div>
   )
 }
@@ -596,6 +694,7 @@ function Tags({ tags, locale, max }: { tags: Tag[]; locale: Locale; max?: number
 
 export function App() {
   const [view, setView] = useState<View>('menu')
+  const previousView = useRef<View>('menu')
   const [selected, setSelected] = useState<Dish | null>(null)
   const [activeFilters, setActiveFilters] = useState<Tag[]>([])
   const [search, setSearch] = useState('')
@@ -604,15 +703,41 @@ export function App() {
     return saved === 'FR' ? 'FR' : 'EN'
   })
   const [meal, setMeal] = useState<MealPeriod>('Dinner')
-  const [shortlist, setShortlist] = useState<string[]>(() => JSON.parse(localStorage.getItem('utopia-shortlist') || '[]'))
+  const [quantities, setQuantities] = useState<Record<string, number>>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('utopia-shortlist') || '{}')
+      if (Array.isArray(saved)) {
+        return Object.fromEntries(saved.filter(Boolean).map((id: string) => [id, 1]))
+      }
+      if (saved && typeof saved === 'object') {
+        return Object.fromEntries(
+          Object.entries(saved).filter((entry): entry is [string, number] => typeof entry[1] === 'number' && entry[1] > 0),
+        )
+      }
+    } catch {
+      return {}
+    }
+    return {}
+  })
   const [answers, setAnswers] = useState<{ hunger?: Hunger; mood?: Mood; dietary?: DietaryPreference; time?: TimePreference }>({})
   const [question, setQuestion] = useState(0)
   const [serverMessage, setServerMessage] = useState<ServerMessage | null>(null)
 
+  const [heroSlide, setHeroSlide] = useState(0)
+
   const copy = ui[language]
 
-  useEffect(() => localStorage.setItem('utopia-shortlist', JSON.stringify(shortlist)), [shortlist])
+  useEffect(() => localStorage.setItem('utopia-shortlist', JSON.stringify(quantities)), [quantities])
   useEffect(() => localStorage.setItem('utopia-language', language), [language])
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const timer = window.setInterval(
+      () => setHeroSlide((current) => (current + 1) % heroPhotos.length),
+      heroSlideInterval,
+    )
+    return () => window.clearInterval(timer)
+  }, [])
 
   const shownDishes = useMemo(() => dishes.filter((dish) => {
     const matchesFilter = activeFilters.every((tag) => dish.tags.includes(tag))
@@ -626,11 +751,19 @@ export function App() {
     return matchesFilter && text.includes(search.toLowerCase())
   }), [activeFilters, language, search])
 
-  const shortlistItems = dishes.filter((dish) => shortlist.includes(dish.id))
+  const shortlistCount = Object.values(quantities).reduce((sum, count) => sum + count, 0)
+  const shortlistItems = dishes.filter((dish) => quantities[dish.id])
 
   const navigate = (next: View) => {
-    setView(next)
+    setView((current) => {
+      if (next === 'search' && current !== 'search') previousView.current = current
+      return next
+    })
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const closeSearch = () => {
+    navigate(previousView.current === 'search' ? 'menu' : previousView.current)
   }
 
   const chooseDish = (dish: Dish) => {
@@ -638,9 +771,23 @@ export function App() {
     navigate('detail')
   }
 
-  const toggleShortlist = (id: string) => setShortlist((current) => (
-    current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
-  ))
+  const setQuantity = (id: string, next: number) => {
+    setQuantities((current) => {
+      const updated = { ...current }
+      if (next <= 0) delete updated[id]
+      else updated[id] = next
+      return updated
+    })
+  }
+
+  const toggleShortlist = (id: string) => setQuantities((current) => {
+    if (current[id]) {
+      const updated = { ...current }
+      delete updated[id]
+      return updated
+    }
+    return { ...current, [id]: 1 }
+  })
 
   const recommendations = useMemo(() => {
     return dishes
@@ -668,38 +815,70 @@ export function App() {
   return (
     <main className="site-shell">
       <div className="phone-frame">
+        {view === 'menu' && (
         <header className="hero-header">
-          <div className="hero-header-media" aria-hidden="true">
-            {heroBackgroundSrc ? <img alt="" className="hero-header-image" src={heroBackgroundSrc} /> : null}
-          </div>
-          <div className="hero-header-top">
-            <Wordmark />
-            <div className="language-select">
-              <Select
-                aria-label={copy.languageLabel}
-                className="header-select"
-                placeholder={copy.languagePlaceholder}
-                value={language}
-                onChange={(value) => value && setLanguage(value as Locale)}
-              >
-                <Select.Trigger>
-                  <Select.Value />
-                  <Select.Indicator />
-                </Select.Trigger>
-                <Select.Popover placement="bottom end">
-                  <ListBox aria-label={copy.languageOptions}>
-                    {languages.map((option) => (
-                      <ListBox.Item id={option} key={option} textValue={option}>
-                        <Label>{option}</Label>
-                        <ListBox.ItemIndicator />
-                      </ListBox.Item>
-                    ))}
-                  </ListBox>
-                </Select.Popover>
-              </Select>
+          <div className="hero-photos">
+            {heroPhotos.map((src, index) => (
+              <img
+                alt=""
+                aria-hidden="true"
+                className={`hero-photo${index === heroSlide ? ' is-active' : ''}`}
+                key={src}
+                src={src}
+              />
+            ))}
+            <div className="hero-photos-scrim" aria-hidden="true" />
+            <div className="hero-photo-dots">
+              {heroPhotos.map((src, index) => (
+                <button
+                  aria-label={`${copy.photosLabel} ${index + 1}`}
+                  aria-pressed={index === heroSlide}
+                  className={`hero-photo-dot${index === heroSlide ? ' is-active' : ''}`}
+                  key={src}
+                  type="button"
+                  onClick={() => setHeroSlide(index)}
+                />
+              ))}
             </div>
           </div>
-          <div className="hero-header-copy">
+          <div className="language-select">
+            <Select
+              aria-label={copy.languageLabel}
+              className="header-select"
+              placeholder={copy.languagePlaceholder}
+              value={language}
+              onChange={(value) => value && setLanguage(value as Locale)}
+            >
+              <Select.Trigger>
+                <Select.Value>{language}</Select.Value>
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover placement="bottom end">
+                <ListBox aria-label={copy.languageOptions}>
+                  {languageMenu.map((option) => (
+                    <ListBox.Item
+                      className="language-option"
+                      id={option.id}
+                      isDisabled={!option.available}
+                      key={option.id}
+                      textValue={copy.languageNames[option.id]}
+                    >
+                      <Label>{copy.languageNames[option.id]}</Label>
+                      {!option.available && (
+                        <Chip className="language-soon" color="default" size="sm" variant="soft">
+                          {copy.languageSoon}
+                        </Chip>
+                      )}
+                    </ListBox.Item>
+                  ))}
+                </ListBox>
+              </Select.Popover>
+            </Select>
+          </div>
+          <div className="hero-info-card">
+            <span className="hero-info-logo">
+              <Wordmark />
+            </span>
             <h1>{copy.restaurantName}</h1>
             <div className="hero-meta">
               <span>{copy.address}</span>
@@ -717,14 +896,18 @@ export function App() {
                 <Select.Popover>
                   <ListBox aria-label={copy.mealOptions}>
                     {meals.map((option) => (
-                      <ListBox.Item id={option} key={option} textValue={copy.meals[option]}>
+                      <ListBox.Item className="meal-option" id={option} key={option} textValue={copy.meals[option]}>
                         <Label>{copy.meals[option]}</Label>
-                        <ListBox.ItemIndicator />
+                        <span className="meal-hours">{mealHours[option]}</span>
                       </ListBox.Item>
                     ))}
                   </ListBox>
                 </Select.Popover>
               </Select>
+            </div>
+            <div className="hero-hours">
+              <span className="hero-hours-open">{copy.hoursLabel}</span>
+              <span>{mealHours[meal]}</span>
             </div>
           </div>
           <SearchField
@@ -734,16 +917,23 @@ export function App() {
             value={search}
             onChange={(value) => {
               setSearch(value)
-              if (view !== 'menu') navigate('menu')
+              if (view !== 'menu' && view !== 'search') navigate('menu')
             }}
           >
             <SearchField.Group>
               <SearchField.SearchIcon />
-              <SearchField.Input placeholder={copy.menu.searchPlaceholder} />
+              <SearchField.Input
+                placeholder={copy.menu.searchPlaceholder}
+                onPointerDown={(event) => {
+                  event.preventDefault()
+                  navigate('search')
+                }}
+              />
               <SearchField.ClearButton />
             </SearchField.Group>
           </SearchField>
         </header>
+        )}
 
         {serverMessage && (
           <div className="alert-wrap" id="server-alert">
@@ -761,12 +951,25 @@ export function App() {
         {view === 'menu' && (
           <MenuView
             activeFilters={activeFilters}
+            chefStrings={copy.chef}
             locale={language}
+            onAdd={(id) => setQuantity(id, 1)}
+            onChef={() => navigate('chef')}
             onClear={() => setActiveFilters([])}
             onDish={chooseDish}
             onFilters={setActiveFilters}
+            onQuantity={setQuantity}
+            quantities={quantities}
             shownDishes={shownDishes}
             strings={copy.menu}
+          />
+        )}
+        {view === 'chef' && (
+          <ChefView
+            locale={language}
+            onBack={() => navigate('menu')}
+            onDish={chooseDish}
+            strings={copy.chef}
           />
         )}
         {view === 'detail' && selected && (
@@ -781,7 +984,7 @@ export function App() {
             onBack={() => navigate('menu')}
             onPairing={chooseDish}
             onSave={() => toggleShortlist(selected.id)}
-            saved={shortlist.includes(selected.id)}
+            saved={Boolean(quantities[selected.id])}
             strings={copy.detail}
           />
         )}
@@ -799,7 +1002,7 @@ export function App() {
               setAnswers({})
               setQuestion(0)
             }}
-            onSaveAll={() => setShortlist(recommendations.map(({ dish }) => dish.id))}
+            onSaveAll={() => setQuantities(Object.fromEntries(recommendations.map(({ dish }) => [dish.id, 1])))}
             question={question}
             recommendations={recommendations.map((entry) => entry.dish)}
             strings={copy.choose}
@@ -812,10 +1015,23 @@ export function App() {
             navigate('choose')
           }} strings={copy.moods} />
         )}
+        {view === 'search' && (
+          <SearchView
+            closeLabel={copy.detail.back}
+            locale={language}
+            results={shownDishes}
+            search={search}
+            strings={copy.menu}
+            onClose={closeSearch}
+            onDish={chooseDish}
+            onSearch={setSearch}
+          />
+        )}
         {view === 'shortlist' && (
           <ShortlistView
             items={shortlistItems}
             locale={language}
+            quantities={quantities}
             onRemove={toggleShortlist}
             onServer={() => showServerMessage({
               title: copy.readyForServer.title,
@@ -826,6 +1042,7 @@ export function App() {
           />
         )}
 
+        {view !== 'search' && view !== 'chef' && (
         <nav className="bottom-nav" aria-label={copy.nav.primary}>
           <Button
             className="nav-button"
@@ -856,22 +1073,10 @@ export function App() {
           >
             <Icon className="nav-icon" name="bookmark" />
             <span>{copy.nav.shortlist}</span>
-            {shortlist.length > 0 && <Chip color="accent" size="sm">{shortlist.length}</Chip>}
-          </Button>
-          <Button
-            className="nav-button"
-            size="sm"
-            variant="ghost"
-            onPress={() => showServerMessage({
-              title: copy.serverHelp.title,
-              description: copy.serverHelp.description,
-              status: 'accent',
-            })}
-          >
-            <Icon className="nav-icon" name="bell" />
-            <span>{copy.nav.server}</span>
+            {shortlistCount > 0 && <Chip color="accent" size="sm">{shortlistCount}</Chip>}
           </Button>
         </nav>
+        )}
       </div>
 
       <p className="demo-note" id="source-note">
@@ -881,17 +1086,256 @@ export function App() {
   )
 }
 
+type SearchViewProps = {
+  search: string
+  results: Dish[]
+  onSearch: (value: string) => void
+  onClose: () => void
+  onDish: (dish: Dish) => void
+  locale: Locale
+  closeLabel: string
+  strings: MenuStrings
+}
+
+function SearchView({ search, results, onSearch, onClose, onDish, locale, closeLabel, strings }: SearchViewProps) {
+  const query = search.trim()
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useLayoutEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+
+  useEffect(() => {
+    const focusInput = () => inputRef.current?.focus()
+    const frame = window.requestAnimationFrame(focusInput)
+    const timeout = window.setTimeout(focusInput, 50)
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.clearTimeout(timeout)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [onClose])
+
+  return (
+    <section className="search-page" aria-label={strings.searchLabel}>
+      <div className="search-page-bar">
+        <Button
+          aria-label={closeLabel}
+          className="search-page-back"
+          size="sm"
+          variant="ghost"
+          onPress={onClose}
+        >
+          <Icon className="search-page-back-icon" name="back" />
+        </Button>
+        <SearchField
+          aria-label={strings.searchLabel}
+          className="search-page-field"
+          fullWidth
+          value={search}
+          onChange={onSearch}
+        >
+          <SearchField.Group>
+            <SearchField.SearchIcon />
+            <SearchField.Input autoFocus placeholder={strings.searchPlaceholder} ref={inputRef} />
+            <SearchField.ClearButton />
+          </SearchField.Group>
+        </SearchField>
+      </div>
+      {query ? (
+        <div className="search-page-results">
+          {results.length
+            ? results.map((dish) => (
+              <DishRow
+                dish={dish}
+                key={dish.id}
+                locale={locale}
+                unavailableLabel={strings.unavailable}
+                onPress={() => onDish(dish)}
+              />
+            ))
+            : <p className="empty">{strings.empty}</p>}
+        </div>
+      ) : (
+          <button className="search-page-dismiss" type="button" onClick={onClose} tabIndex={-1} aria-label={closeLabel} />
+      )}
+    </section>
+  )
+}
+
+function QuantityStepper({
+  value,
+  onChange,
+  className,
+}: {
+  value: number
+  onChange: (next: number) => void
+  className?: string
+}) {
+  return (
+    <div
+      className={`quantity-stepper ${className ?? ''}`.trim()}
+      onClick={(event) => event.stopPropagation()}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <button
+        aria-label="-"
+        className={value <= 1 ? 'quantity-stepper-minus-muted' : undefined}
+        type="button"
+        onClick={() => onChange(value - 1)}
+      >
+        −
+      </button>
+      <span>{value}</span>
+      <button aria-label="+" type="button" onClick={() => onChange(value + 1)}>
+        +
+      </button>
+    </div>
+  )
+}
+
+function ChefView({ locale, onBack, onDish, strings }: { locale: Locale; onBack: () => void; onDish: (dish: Dish) => void; strings: ChefStrings }) {
+  const recommendedDishes = chefProfile.recommendations
+    .map((id) => dishes.find((dish) => dish.id === id))
+    .filter((dish): dish is Dish => Boolean(dish))
+
+  return (
+    <section className="chef-view">
+      <div className="chef-view-hero">
+        <img alt="" className="chef-view-image" src={chefProfile.image} />
+        <div className="chef-view-scrim" aria-hidden="true" />
+        <Button className="chef-view-back" size="sm" variant="ghost" onPress={onBack}>
+          <Icon className="chef-view-back-icon" name="back" />
+          <span>{strings.back}</span>
+        </Button>
+        <div className="chef-view-title">
+          <span className="section-label">{strings.profileLabel}</span>
+          <h2>{chefProfile.name}</h2>
+          <p>{chefProfile.role}</p>
+        </div>
+      </div>
+
+      <div className="chef-view-content">
+        <section className="chef-story-card">
+          <span className="section-label">{strings.storyTitle}</span>
+          <p>{localize(chefProfile.story, locale)}</p>
+        </section>
+
+        <section className="chef-recommendations" aria-labelledby="chef-recommendations-title">
+          <div className="chef-recommendations-heading">
+            <span className="section-label">{strings.recommendationsTitle}</span>
+            <p>{strings.recommendationBody}</p>
+          </div>
+          <div className="chef-recommendation-track" role="list">
+            {recommendedDishes.map((dish) => (
+              <button className="chef-recommendation-card" key={dish.id} type="button" role="listitem" onClick={() => onDish(dish)}>
+                <img alt="" src={dish.image} />
+                <span>
+                  <strong>{localize(dish.name, locale)}</strong>
+                  <small>{money(dish.price)}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      </div>
+    </section>
+  )
+}
+
+function MostLovedSection({ locale, onDish, onAdd, onQuantity, quantities }: { locale: Locale; onDish: (dish: Dish) => void; onAdd: (id: string) => void; onQuantity: (id: string, next: number) => void; quantities: Record<string, number> }) {
+  const lovedDishes = mostLovedDishes
+    .map((loved) => {
+      const dish = dishes.find((d) => d.id === loved.id)
+      return dish ? { dish, quote: loved.quote } : null
+    })
+    .filter((item): item is { dish: Dish; quote: LocalizedText } => item !== null)
+
+  return (
+    <section className="most-loved-section" aria-label={locale === 'FR' ? 'les plus aimes' : 'most loved'}>
+      <div className="most-loved-header">
+        <Icon className="most-loved-heart" name="heart" />
+        <span className="most-loved-title">{locale === 'FR' ? 'les plus aimés' : 'most loved'}</span>
+      </div>
+      <div className="most-loved-track" role="list">
+        {lovedDishes.map(({ dish, quote }) => (
+          <article className="most-loved-card" key={dish.id} role="listitem">
+            <button className="most-loved-card-button" type="button" onClick={() => onDish(dish)}>
+              <div className="most-loved-card-image-wrap">
+                <img alt="" className="most-loved-card-image" src={dish.image} />
+              </div>
+              <div className="most-loved-card-content">
+                <div className="most-loved-card-header">
+                  <div style={{ display: 'grid', gap: '0.15rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      {dish.tags.includes('Vegetarian') && (
+                        <Icon className="most-loved-card-tag-icon" name="sprout" />
+                      )}
+                      {dish.tags.includes('Vegan') && (
+                        <Icon className="most-loved-card-tag-icon" name="leaf" />
+                      )}
+                      <span className="most-loved-card-name">{localize(dish.name, locale)}</span>
+                    </div>
+                    <span className="most-loved-card-price">{money(dish.price)}</span>
+                  </div>
+                  {quantities[dish.id] ? (
+                    <QuantityStepper
+                      className="most-loved-stepper"
+                      value={quantities[dish.id]}
+                      onChange={(next) => onQuantity(dish.id, next)}
+                    />
+                  ) : (
+                    <Button
+                      className="most-loved-card-add"
+                      size="sm"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onAdd(dish.id)
+                      }}
+                    >
+                      {locale === 'FR' ? 'Ajouter' : 'Add'}
+                    </Button>
+                  )}
+                </div>
+                <p className="most-loved-card-quote">
+                  <span>❤️</span>
+                  <span>{localize(quote, locale)}</span>
+                </p>
+              </div>
+            </button>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 type MenuViewProps = {
   shownDishes: Dish[]
   activeFilters: Tag[]
   onFilters: (tags: Tag[]) => void
   onClear: () => void
   onDish: (dish: Dish) => void
+  onChef: () => void
+  onAdd: (id: string) => void
+  onQuantity: (id: string, next: number) => void
+  quantities: Record<string, number>
   locale: Locale
   strings: MenuStrings
+  chefStrings: ChefStrings
 }
 
-function MenuView({ shownDishes, activeFilters, onFilters, onClear, onDish, locale, strings }: MenuViewProps) {
+const featuredPromos: Record<string, LocalizedText> = {
+  'utopia-burger': { EN: 'Buy 1 get 1', FR: '1 achete 1 offert' },
+  poutine: { EN: '20% off', FR: '-20 %' },
+  'chicken-karaage': { EN: '$9 off', FR: '9 $ de rabais' },
+}
+
+function MenuView({ shownDishes, activeFilters, onFilters, onClear, onDish, onChef, onAdd, onQuantity, quantities, locale, strings, chefStrings }: MenuViewProps) {
   const featuredDishes = [
     dishes.find((dish) => dish.id === 'utopia-burger') ?? dishes[0],
     dishes.find((dish) => dish.id === 'poutine') ?? dishes[1],
@@ -901,20 +1345,65 @@ function MenuView({ shownDishes, activeFilters, onFilters, onClear, onDish, loca
   return (
     <section className="view menu-view">
       <section className="hero-carousel" aria-label={strings.mostOrdered}>
-        <div className="hero-carousel-header">
-          <span className="section-label">{strings.mostOrdered}</span>
-        </div>
         <div className="hero-carousel-track" role="list">
           {featuredDishes.map((dish, index) => (
-            <Card className={`hero-card hero-card-${index + 1}`} key={dish.id} role="listitem">
-              <div className="hero-card-copy">
-                <h2>{localize(dish.name, locale)}</h2>
-                <p>{localize(dish.summary, locale)}</p>
+            <article
+              className={`hero-card hero-card-${index + 1}`}
+              key={dish.id}
+              role="listitem"
+              onClick={() => onDish(dish)}
+            >
+              <img alt="" className="hero-card-image" src={dish.image} />
+              <div className="hero-card-scrim" />
+              {featuredPromos[dish.id] && (
+                <span className="hero-card-promo">{localize(featuredPromos[dish.id], locale)}</span>
+              )}
+              <div className="hero-card-footer">
+                <div className="hero-card-copy">
+                  <span className="hero-card-kicker">{strings.heroKicker}</span>
+                  <h2>{localize(dish.name, locale)}</h2>
+                  <p>{money(dish.price)}</p>
+                </div>
+                {quantities[dish.id] ? (
+                  <QuantityStepper
+                    className="hero-card-stepper"
+                    value={quantities[dish.id]}
+                    onChange={(next) => onQuantity(dish.id, next)}
+                  />
+                ) : (
+                  <Button
+                    className="hero-card-add"
+                    size="sm"
+                    onClick={(event) => event.stopPropagation()}
+                    onPress={() => onAdd(dish.id)}
+                  >
+                    {strings.heroAdd}
+                  </Button>
+                )}
               </div>
-              <DishArt dish={dish} locale={locale} />
-            </Card>
+            </article>
           ))}
         </div>
+      </section>
+
+      <MostLovedSection
+        locale={locale}
+        onAdd={onAdd}
+        onDish={onDish}
+        onQuantity={onQuantity}
+        quantities={quantities}
+      />
+
+      <section className="chef-feature" aria-labelledby="chef-feature-title">
+        <button className="chef-feature-card" type="button" onClick={onChef}>
+          <img alt="" className="chef-feature-image" src={chefProfile.image} />
+          <span className="chef-feature-scrim" aria-hidden="true" />
+          <span className="chef-feature-copy">
+            <span className="chef-feature-kicker">{chefStrings.sectionLabel}</span>
+            <strong id="chef-feature-title">{chefStrings.sectionTitle}</strong>
+            <span>{chefStrings.sectionBody}</span>
+          </span>
+        </button>
       </section>
 
       <div className="filter-row">
@@ -1013,6 +1502,7 @@ type DetailViewProps = {
 
 function DetailView({ dish, saved, onBack, onSave, onPairing, onAllergy, locale, strings }: DetailViewProps) {
   const pair = dish.pairing ? dishes.find((item) => item.id === dish.pairing?.id) : undefined
+  const review = reviewSummaryFor(dish)
   return (
     <section className="view detail-view">
       <Button size="sm" variant="ghost" onPress={onBack}>← {strings.back}</Button>
@@ -1029,22 +1519,6 @@ function DetailView({ dish, saved, onBack, onSave, onPairing, onAllergy, locale,
       <Tags tags={dish.tags} locale={locale} />
 
       <Separator />
-      <section className="detail-block">
-        <span className="section-label">{strings.menuDescription}</span>
-        <p>{localize(dish.description, locale)}</p>
-      </section>
-
-      <Separator />
-      <section className="detail-block allergy">
-        <span className="section-label">{strings.dietary}</span>
-        <p>{strings.dietaryBody}</p>
-        <Link href="#server-alert" onPress={onAllergy}>
-          {strings.speakToServer}
-          <Link.Icon>→</Link.Icon>
-        </Link>
-      </section>
-
-      <Separator />
       <section className="nutrition">
         <span className="section-label">{strings.nutrition}</span>
         <div>
@@ -1054,6 +1528,25 @@ function DetailView({ dish, saved, onBack, onSave, onPairing, onAllergy, locale,
           <strong>{dish.fat}g<small>{strings.fat}</small></strong>
         </div>
       </section>
+
+      <Separator />
+      <article className="review-summary-card">
+        <div className="review-summary-tags">
+          {review.tags.map((tag) => (
+            <span className="review-tag" key={tag.EN}>{localize(tag, locale)}</span>
+          ))}
+        </div>
+        <h3 className="review-summary-title">{strings.reviewTitle}</h3>
+        <ul className="review-summary-points">
+          {review.points.map((point) => (
+            <li key={point.EN}>
+              <Icon className="review-summary-icon" name="thumbs-up" />
+              <span>{localize(point, locale)}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="review-summary-source">{strings.reviewSource}</p>
+      </article>
 
       {dish.customisations && (
         <>
@@ -1202,8 +1695,8 @@ function MoodView({ onMood, locale, strings }: { onMood: (mood: Mood) => void; l
   )
 }
 
-function ShortlistView({ items, onRemove, onServer, locale, strings }: { items: Dish[]; onRemove: (id: string) => void; onServer: () => void; locale: Locale; strings: ShortlistStrings }) {
-  const total = items.reduce((sum, dish) => sum + dish.price, 0)
+function ShortlistView({ items, quantities, onRemove, onServer, locale, strings }: { items: Dish[]; quantities: Record<string, number>; onRemove: (id: string) => void; onServer: () => void; locale: Locale; strings: ShortlistStrings }) {
+  const total = items.reduce((sum, dish) => sum + dish.price * (quantities[dish.id] ?? 1), 0)
   return (
     <section className="view shortlist-view">
       <span className="section-label">{strings.label}</span>
@@ -1216,6 +1709,7 @@ function ShortlistView({ items, onRemove, onServer, locale, strings }: { items: 
               <div key={dish.id}>
                 <Separator />
                 <article>
+                  <DishArt dish={dish} locale={locale} />
                   <div>
                     <strong>{localize(dish.name, locale)}</strong>
                     <p>{localize(dish.summary, locale)}</p>
