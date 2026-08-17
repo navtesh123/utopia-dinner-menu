@@ -221,8 +221,17 @@ const chefProfile = {
 }
 const haptic = (style: 'light' | 'medium' | 'heavy' = 'light') => {
   if ('vibrate' in navigator) {
-    const duration = style === 'light' ? 10 : style === 'medium' ? 20 : 30
-    navigator.vibrate(duration)
+    const duration = style === 'light' ? 25 : style === 'medium' ? 50 : 75
+    try {
+      const result = navigator.vibrate(duration)
+      if (!result) {
+        console.warn('Vibration API returned false - may not be supported or permission denied')
+      }
+    } catch (error) {
+      console.warn('Haptic feedback failed:', error)
+    }
+  } else {
+    console.warn('Vibration API not supported on this device/browser')
   }
 }
 
