@@ -560,7 +560,7 @@ p {
   position: relative;
   z-index: 2;
   width: 100%;
-  margin: 1.05rem 0 -1.1rem;
+  margin: 1.05rem 0 0;
 }
 
 .hero-search .search-field__group {
@@ -891,6 +891,200 @@ p {
 .empty,
 .demo-note {
   color: var(--muted);
+}
+
+.price-sale {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.price-sale s {
+  color: var(--muted);
+  font-size: 0.82em;
+  font-weight: 600;
+}
+
+.todays-promos {
+  width: calc(100% + 2.8rem);
+  margin: 0 -1.4rem 1.15rem;
+  padding: 0 0 0.35rem;
+}
+
+.todays-promos-header {
+  padding: 0 1.4rem 0.85rem;
+  display: grid;
+  gap: 0.28rem;
+}
+
+.todays-promos-header h2 {
+  margin: 0;
+  font-size: 1.45rem;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+
+.todays-promos-header p {
+  margin: 0;
+  max-width: 36ch;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.todays-promos-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(15.5rem, 70%);
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding: 0 1.4rem 0.35rem;
+  scroll-padding-inline: 1.4rem;
+  scrollbar-width: none;
+}
+
+.todays-promos-track::-webkit-scrollbar {
+  display: none;
+}
+
+.todays-promo-card {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.65rem 0.65rem 0.8rem;
+  border-radius: 1.15rem;
+  background: var(--surface);
+  box-shadow: 0 0.4rem 1.2rem var(--shadow-ink);
+}
+
+.todays-promo-hit {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.todays-promo-badge {
+  justify-self: start;
+  padding: 0.28rem 0.5rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.todays-promo-image {
+  width: 100%;
+  height: 8.5rem;
+  object-fit: cover;
+  border-radius: 0.85rem;
+  outline: 1px solid color-mix(in oklch, var(--navy) 12%, transparent);
+}
+
+.todays-promo-copy {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.todays-promo-copy strong {
+  font-size: 1rem;
+  line-height: 1.15;
+}
+
+.todays-promo-prices {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.todays-promo-prices s {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.todays-promo-prices em {
+  font-style: normal;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.todays-promo-add,
+.todays-promo-stepper {
+  justify-self: start;
+}
+
+.todays-promo-add {
+  min-height: 2.15rem;
+  border-radius: 999px;
+}
+
+.upsell-sheet {
+  padding: 0.5rem 1.4rem 1.6rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.upsell-sheet h2 {
+  margin: 0;
+  font-size: 1.45rem;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.upsell-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.upsell-row {
+  display: grid;
+  grid-template-columns: 4.4rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--separator);
+}
+
+.upsell-image {
+  width: 4.4rem;
+  height: 4.4rem;
+  object-fit: cover;
+  border-radius: 0.7rem;
+  outline: 1px solid color-mix(in oklch, var(--navy) 12%, transparent);
+}
+
+.upsell-copy {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.upsell-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.upsell-price {
+  font-size: 0.85rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.upsell-add {
+  min-height: 2.15rem;
+}
+
+.upsell-skip {
+  margin-top: 0.25rem;
 }
 
 .hero-carousel {
@@ -2295,9 +2489,16 @@ p {
     padding-right: 1rem;
   }
 
-  .hero-carousel {
+  .hero-carousel,
+  .todays-promos {
     width: calc(100% + 2rem);
     margin-inline: -1rem;
+  }
+
+  .todays-promos-header,
+  .todays-promos-track {
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
 
   .hero-photos {

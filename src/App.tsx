@@ -19,7 +19,11 @@ import {
 } from '@heroui/react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { logWarn } from './logger'
+import { upsellsFor, type PairingSuggestion } from './pairings'
+import { isTodayPromo, promoPrice, sellingPrice } from './pricing'
 import { mealFromDate, useDayNightTheme } from './theme'
+import { TodaysPromos, type PromoCopy } from './TodaysPromos'
+import { UpsellSheet, type UpsellCopy } from './UpsellSheet'
 import { WebReviews } from './WebReviews'
 import {
   categories,
@@ -183,6 +187,8 @@ type AppCopy = {
   nav: { primary: string; menu: string; choose: string; shortlist: string }
   cart: { itemsAdded: (count: number) => string; viewCart: string }
   sourceNote: string
+  promo: PromoCopy
+  upsell: UpsellCopy
   menu: MenuStrings
   detail: DetailStrings
   choose: ChooseStrings
@@ -242,6 +248,19 @@ const haptic = (style: 'light' | 'medium' | 'heavy' = 'light') => {
 }
 
 const money = (value: number) => `CA$${value.toFixed(2)}`
+
+/** Regular price, or struck-through list price plus today's 20% off. */
+function PriceDisplay({ dish }: { dish: Dish }) {
+  if (isTodayPromo(dish.id)) {
+    return (
+      <span className="price-sale">
+        <s>{money(dish.price)}</s>
+        <strong>{money(promoPrice(dish.price))}</strong>
+      </span>
+    )
+  }
+  return <strong>{money(dish.price)}</strong>
+}
 const categoryId = (category: Category) => category.toLowerCase().replace(/\s+/g, '-')
 const defaultCustomizationFor = (dish: Dish): DishCustomizationState => ({
   baseOptions: Object.fromEntries(
@@ -268,7 +287,7 @@ const calculateDishPrice = (dish: Dish, customization?: DishCustomizationState):
     return sum + (findBaseOption(dish, groupId, optionId)?.price ?? 0)
   }, 0)
   const addOnTotal = selected.addOns.reduce((sum, addOnId) => sum + (findAddOn(dish, addOnId)?.price ?? 0), 0)
-  return dish.price + baseOptionTotal + addOnTotal
+  return sellingPrice(dish.id, dish.price) + baseOptionTotal + addOnTotal
 }
 const isCustomizationState = (value: unknown): value is DishCustomizationState => {
   if (!value || typeof value !== 'object') return false
@@ -345,6 +364,18 @@ const ui: Record<Locale, AppCopy> = {
       viewCart: 'View Shortlist',
     },
     sourceNote: 'Menu imported from public delivery listings. Confirm prices, allergens, availability, and nutrition with Utopia before launch.',
+    promo: {
+      title: "Today's kitchen extras",
+      body: 'These plates need a home tonight. 20% off today only.',
+      offLabel: '20% OFF TODAY',
+      add: 'Add',
+    },
+    upsell: {
+      title: 'Make it a plate',
+      body: (name: string) => `Guests often add these with ${name}.`,
+      add: 'Add',
+      skip: 'No thanks',
+    },
     menu: {
       mostOrdered: 'MOST ORDERED',
       heroTitle: 'Burritos, burgers, brunch and comfort plates.',
@@ -524,6 +555,18 @@ const ui: Record<Locale, AppCopy> = {
       viewCart: 'Voir la liste',
     },
     sourceNote: 'Menu importe a partir de listings publics de livraison. Confirmez les prix, allergenes, disponibilites et valeurs nutritives avec Utopia avant la mise en ligne.',
+    promo: {
+      title: 'Les extras du jour',
+      body: 'Ces plats doivent partir ce soir. 20 % de rabais aujourd hui seulement.',
+      offLabel: '20 % AUJOURD HUI',
+      add: 'Ajouter',
+    },
+    upsell: {
+      title: 'Completez l assiette',
+      body: (name: string) => `Les clients ajoutent souvent ceci avec ${name}.`,
+      add: 'Ajouter',
+      skip: 'Non merci',
+    },
     menu: {
       mostOrdered: 'LES PLUS COMMANDES',
       heroTitle: 'Burritos, burgers, brunch et assiettes reconfortantes.',
@@ -858,6 +901,7 @@ export function App() {
   const [serverMessage, setServerMessage] = useState<ServerMessage | null>(null)
   const [showShortlistModal, setShowShortlistModal] = useState(false)
   const [showDetailSheet, setShowDetailSheet] = useState(false)
+  const [upsell, setUpsell] = useState<{ source: Dish; suggestions: PairingSuggestion[] } | null>(null)
 
   const [heroSlide, setHeroSlide] = useState(0)
 
@@ -871,8 +915,8 @@ export function App() {
   useEffect(() => localStorage.setItem('utopia-language', language), [language])
 
   useEffect(() => {
-    document.body.style.overflow = showShortlistModal || showDetailSheet ? 'hidden' : ''
-  }, [showShortlistModal, showDetailSheet])
+    document.body.style.overflow = showShortlistModal || showDetailSheet || Boolean(upsell) ? 'hidden' : ''
+  }, [showShortlistModal, showDetailSheet, upsell])
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -934,6 +978,26 @@ export function App() {
       }
       return updated
     })
+  }
+
+  /** First add of a plate also opens pairing upsells. Later quantity changes stay quiet. */
+  const addWithUpsell = (id: string) => {
+    const dish = dishes.find((item) => item.id === id)
+    if (!dish) {
+      logWarn('addWithUpsell could not find dish', id)
+      return
+    }
+    const already = Boolean(quantities[id])
+    setQuantity(id, already ? (quantities[id] ?? 1) + 1 : 1)
+    if (already) return
+    const suggestions = upsellsFor(id, new Set([...Object.keys(quantities), id]))
+    if (suggestions.length === 0) return
+    setUpsell({ source: dish, suggestions })
+  }
+
+  /** Add from the upsell sheet without opening another upsell. */
+  const addQuiet = (id: string) => {
+    setQuantity(id, (quantities[id] ?? 0) + 1)
   }
 
   const toggleShortlist = (id: string) => setQuantities((current) => {
@@ -1104,9 +1168,9 @@ export function App() {
               <SearchField.SearchIcon />
               <SearchField.Input
                 placeholder={copy.menu.searchPlaceholder}
-                onPointerDown={(event) => {
+                readOnly
+                onClick={() => {
                   haptic('light')
-                  event.preventDefault()
                   navigate('search')
                 }}
               />
@@ -1137,7 +1201,8 @@ export function App() {
             activeFilters={activeFilters}
             chefStrings={copy.chef}
             locale={language}
-            onAdd={(id) => setQuantity(id, 1)}
+            onAdd={addWithUpsell}
+            promoStrings={copy.promo}
             onChef={() => navigate('chef')}
             onChoose={() => navigate('choose')}
             onClear={() => setActiveFilters([])}
@@ -1310,13 +1375,54 @@ export function App() {
                 onPairing={chooseDish}
                 onSave={() => {
                   haptic('medium')
-                  toggleShortlist(selected.id)
+                  if (quantities[selected.id]) {
+                    toggleShortlist(selected.id)
+                  } else {
+                    addWithUpsell(selected.id)
+                  }
                   setShowDetailSheet(false)
                   window.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' })
                 }}
                 onCustomizationChange={(customization) => updateDishCustomization(selected.id, customization)}
                 saved={Boolean(quantities[selected.id])}
                 strings={copy.detail}
+              />
+            </div>
+          </>
+        )}
+
+        {upsell && (
+          <>
+            <div className="modal-overlay" onClick={() => {
+              haptic('light')
+              setUpsell(null)
+            }} />
+            <div className="bottom-sheet upsell-sheet-frame">
+              <div className="bottom-sheet-handle" />
+              <button className="bottom-sheet-close" type="button" onClick={() => {
+                haptic('light')
+                setUpsell(null)
+              }} aria-label={copy.dismissMessage}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6l-12 12m0-12l12 12" />
+                </svg>
+              </button>
+              <UpsellSheet
+                locale={language}
+                money={money}
+                onAdd={(id) => {
+                  addQuiet(id)
+                  setUpsell((current) => {
+                    if (!current) return null
+                    const remaining = current.suggestions.filter((entry) => entry.id !== id)
+                    return remaining.length ? { ...current, suggestions: remaining } : null
+                  })
+                }}
+                onClose={() => setUpsell(null)}
+                onHaptic={haptic}
+                source={upsell.source}
+                strings={copy.upsell}
+                suggestions={upsell.suggestions}
               />
             </div>
           </>
@@ -1495,7 +1601,7 @@ function ChefView({ locale, onBack, onDish, strings }: { locale: Locale; onBack:
                 <img alt="" src={dish.image} />
                 <span>
                   <strong>{localize(dish.name, locale)}</strong>
-                  <small>{money(dish.price)}</small>
+                  <small><PriceDisplay dish={dish} /></small>
                 </span>
               </button>
             ))}
@@ -1542,7 +1648,7 @@ function MostLovedSection({ locale, onDish, onAdd, onQuantity, quantities }: { l
                       )}
                       <span className="most-loved-card-name">{localize(dish.name, locale)}</span>
                     </div>
-                    <span className="most-loved-card-price">{money(dish.price)}</span>
+                    <span className="most-loved-card-price"><PriceDisplay dish={dish} /></span>
                   </div>
                   {quantities[dish.id] ? (
                     <QuantityStepper
@@ -1591,73 +1697,27 @@ type MenuViewProps = {
   locale: Locale
   strings: MenuStrings
   chefStrings: ChefStrings
+  promoStrings: PromoCopy
 }
 
-const featuredPromos: Record<string, LocalizedText> = {
-  'utopia-burger': { EN: 'Buy 1 get 1', FR: '1 achete 1 offert' },
-  poutine: { EN: '20% off', FR: '-20 %' },
-  'chicken-karaage': { EN: '$9 off', FR: '9 $ de rabais' },
-}
-
-function MenuView({ shownDishes, activeFilters, onFilters, onClear, onDish, onChef, onChoose, onAdd, onQuantity, quantities, locale, strings, chefStrings }: MenuViewProps) {
-  const featuredDishes = [
-    dishes.find((dish) => dish.id === 'utopia-burger') ?? dishes[0],
-    dishes.find((dish) => dish.id === 'poutine') ?? dishes[1],
-    dishes.find((dish) => dish.id === 'chicken-karaage') ?? dishes[2],
-  ]
-
+function MenuView({ shownDishes, activeFilters, onFilters, onClear, onDish, onChef, onChoose, onAdd, onQuantity, quantities, locale, strings, chefStrings, promoStrings }: MenuViewProps) {
   return (
     <section className="view menu-view">
-      <section className="hero-carousel" aria-label={strings.mostOrdered}>
-        <div className="hero-carousel-track" role="list">
-          {featuredDishes.map((dish, index) => (
-            <article
-              className={`hero-card hero-card-${index + 1}`}
-              key={dish.id}
-              role="listitem"
-              onClick={() => {
-                haptic('medium')
-                onDish(dish)
-              }}
-            >
-              <img alt="" className="hero-card-image" src={dish.image} />
-              <div className="hero-card-scrim" />
-              {featuredPromos[dish.id] && (
-                <span className="hero-card-promo">{localize(featuredPromos[dish.id], locale)}</span>
-              )}
-              <div className="hero-card-footer">
-                <div className="hero-card-copy">
-                  <span className="hero-card-kicker">{strings.heroKicker}</span>
-                  <h2>{localize(dish.name, locale)}</h2>
-                  <p>{money(dish.price)}</p>
-                </div>
-                {quantities[dish.id] ? (
-                  <QuantityStepper
-                    className="hero-card-stepper"
-                    value={quantities[dish.id]}
-                    onChange={(next) => onQuantity(dish.id, next)}
-                  />
-                ) : (
-                  <Button
-                    className="hero-card-add"
-                    size="sm"
-                    onClick={(event) => {
-                      haptic('medium')
-                      event.stopPropagation()
-                    }}
-                    onPress={() => {
-                      haptic('medium')
-                      onAdd(dish.id)
-                    }}
-                  >
-                    {strings.heroAdd}
-                  </Button>
-                )}
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
+      <TodaysPromos
+        locale={locale}
+        money={money}
+        onAdd={onAdd}
+        onDish={(id) => {
+          const dish = dishes.find((item) => item.id === id)
+          if (dish) onDish(dish)
+        }}
+        onHaptic={haptic}
+        quantities={quantities}
+        renderStepper={(id, value) => (
+          <QuantityStepper className="todays-promo-stepper" value={value} onChange={(next) => onQuantity(id, next)} />
+        )}
+        strings={promoStrings}
+      />
 
       <MostLovedSection
         locale={locale}
@@ -1791,7 +1851,7 @@ function DishRow({ dish, locale, onPress, why, unavailableLabel }: { dish: Dish;
             <strong className="dish-name">{localize(dish.name, locale)}</strong>
             <span className="dish-summary">{localize(dish.summary, locale)}</span>
             {why && <span className="dish-reason">{why}</span>}
-            <strong>{money(dish.price)}</strong>
+            <PriceDisplay dish={dish} />
             {!dish.available && unavailableLabel && <Chip color="danger" size="sm" variant="soft">{unavailableLabel}</Chip>}
           </span>
           <DishArt dish={dish} locale={locale} />
@@ -1815,7 +1875,12 @@ type DetailViewProps = {
 }
 
 function DetailView({ dish, customization, saved, onBack, onSave, onCustomizationChange, onPairing, onAllergy, locale, strings }: DetailViewProps) {
-  const pair = dish.pairing ? dishes.find((item) => item.id === dish.pairing?.id) : undefined
+  const suggestedPairs = upsellsFor(dish.id, new Set(), 3)
+    .map((entry) => {
+      const paired = dishes.find((item) => item.id === entry.id)
+      return paired ? { dish: paired, reason: entry.reason } : null
+    })
+    .filter((entry): entry is { dish: Dish; reason: PairingSuggestion['reason'] } => Boolean(entry))
   const review = reviewSummaryFor(dish)
   const selectedAddOns = new Set(customization.addOns)
   const totalPrice = calculateDishPrice(dish, customization)
@@ -1962,25 +2027,27 @@ function DetailView({ dish, customization, saved, onBack, onSave, onCustomizatio
         </>
       )}
 
-      {pair && (
+      {suggestedPairs.length > 0 && (
         <Card>
           <Card.Header>
             <Card.Title>{strings.pairingTitle}</Card.Title>
           </Card.Header>
           <Card.Content>
-            <Button fullWidth variant="ghost" onPress={() => {
-              haptic('medium')
-              onPairing(pair)
-            }}>
-              <span className="pairing-content">
-                <DishArt dish={pair} locale={locale} />
-                <span>
-                  <strong>{localize(pair.name, locale)}</strong>
-                  <span>{dish.pairing ? localize(dish.pairing.reason, locale) : ''}</span>
+            {suggestedPairs.map(({ dish: pair, reason }) => (
+              <Button fullWidth key={pair.id} variant="ghost" onPress={() => {
+                haptic('medium')
+                onPairing(pair)
+              }}>
+                <span className="pairing-content">
+                  <DishArt dish={pair} locale={locale} />
+                  <span>
+                    <strong>{localize(pair.name, locale)}</strong>
+                    <span>{localize(reason, locale)}</span>
+                  </span>
+                  <PriceDisplay dish={pair} />
                 </span>
-                <strong>{money(pair.price)}</strong>
-              </span>
-            </Button>
+              </Button>
+            ))}
           </Card.Content>
         </Card>
       )}
