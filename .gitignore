@@ -4,3 +4,6 @@ dist/
 *.tsbuildinfo
 .env
 .env.*
+dev.sh
+dev.sh.local
+documentation/
