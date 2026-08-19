@@ -18,6 +18,9 @@ import {
   ToggleButtonGroup,
 } from '@heroui/react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { logWarn } from './logger'
+import { mealFromDate, useDayNightTheme } from './theme'
+import { WebReviews } from './WebReviews'
 import {
   categories,
   categoryCues,
@@ -163,6 +166,10 @@ type AppCopy = {
   languageNames: Record<string, string>
   languageSoon: string
   restaurantName: string
+  established: string
+  reviewsFromWeb: string
+  reviewVotes: (count: number) => string
+  reviewCount: (count: number) => string
   address: string
   mealLabel: string
   mealOptions: string
@@ -201,7 +208,6 @@ const mealHours: Record<MealPeriod, string> = {
   Lunch: '12pm - 4pm',
   Dinner: '5pm - 10pm',
 }
-const heroLogoSrc = '/utopia-logo.png?v=2'
 // Placeholder hero photos - swap these with final restaurant photography when available.
 const heroPhotos = [
   '/dishes/utopia-burger.jpg',
@@ -225,13 +231,13 @@ const haptic = (style: 'light' | 'medium' | 'heavy' = 'light') => {
     try {
       const result = navigator.vibrate(duration)
       if (!result) {
-        console.warn('Vibration API returned false - may not be supported or permission denied')
+        logWarn('Vibration API returned false - may not be supported or permission denied')
       }
     } catch (error) {
-      console.warn('Haptic feedback failed:', error)
+      logWarn('Haptic feedback failed', error)
     }
   } else {
-    console.warn('Vibration API not supported on this device/browser')
+    logWarn('Vibration API not supported on this device/browser')
   }
 }
 
@@ -304,6 +310,10 @@ const ui: Record<Locale, AppCopy> = {
     },
     languageSoon: 'Soon',
     restaurantName: 'Utopia cafe & grill',
+    established: 'Established 1995',
+    reviewsFromWeb: 'Reviews from the web',
+    reviewVotes: (count: number) => `${count.toLocaleString('en-CA')} votes`,
+    reviewCount: (count: number) => `${count.toLocaleString('en-CA')} reviews`,
     address: '586 college st.',
     mealLabel: 'Meal period',
     mealOptions: 'Meal options',
@@ -479,6 +489,10 @@ const ui: Record<Locale, AppCopy> = {
     },
     languageSoon: 'Bientot',
     restaurantName: 'Utopia cafe & grill',
+    established: 'Depuis 1995',
+    reviewsFromWeb: 'Avis du web',
+    reviewVotes: (count: number) => `${count.toLocaleString('fr-CA')} votes`,
+    reviewCount: (count: number) => `${count.toLocaleString('fr-CA')} avis`,
     address: '586 college st.',
     mealLabel: 'Service',
     mealOptions: 'Options de service',
@@ -768,13 +782,9 @@ function LogoMark() {
 }
 
 function Wordmark() {
-  if (heroLogoSrc) {
-    return <img alt="utopia" className="wordmark-image" src={heroLogoSrc} />
-  }
-
   return (
-    <span className="wordmark" aria-hidden="true">
-      utopia
+    <span className="utopia-sign" aria-hidden="true">
+      <span className="utopia-sign-type">utopia</span>
     </span>
   )
 }
@@ -801,6 +811,7 @@ function Tags({ tags, locale, max }: { tags: Tag[]; locale: Locale; max?: number
   )
 }
 
+/** QR menu shell: landing hero (name, 1995, web reviews) then browse / choose / shortlist. */
 export function App() {
   const [view, setView] = useState<View>('menu')
   const previousView = useRef<View>('menu')
@@ -812,7 +823,7 @@ export function App() {
     const saved = localStorage.getItem('utopia-language')
     return saved === 'FR' ? 'FR' : 'EN'
   })
-  const [meal, setMeal] = useState<MealPeriod>('Dinner')
+  const [meal, setMeal] = useState<MealPeriod>(() => mealFromDate())
   const [quantities, setQuantities] = useState<Record<string, number>>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('utopia-shortlist') || '{}')
@@ -852,13 +863,12 @@ export function App() {
 
   const copy = ui[language]
 
+  // Room light follows the meal: Brunch/Lunch stay sunlit, Dinner goes navy night.
+  useDayNightTheme(meal)
+
   useEffect(() => localStorage.setItem('utopia-shortlist', JSON.stringify(quantities)), [quantities])
   useEffect(() => localStorage.setItem('utopia-dish-customizations', JSON.stringify(dishCustomizations)), [dishCustomizations])
   useEffect(() => localStorage.setItem('utopia-language', language), [language])
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', meal === 'Dinner')
-  }, [meal])
 
   useEffect(() => {
     document.body.style.overflow = showShortlistModal || showDetailSheet ? 'hidden' : ''
@@ -1038,6 +1048,12 @@ export function App() {
               <Wordmark />
             </span>
             <h1>{copy.restaurantName}</h1>
+            <p className="established-year">{copy.established}</p>
+            <WebReviews
+              reviewsLabel={copy.reviewCount}
+              title={copy.reviewsFromWeb}
+              votesLabel={copy.reviewVotes}
+            />
             <div className="hero-meta">
               <span>{copy.address}</span>
               <span aria-hidden="true">|</span>

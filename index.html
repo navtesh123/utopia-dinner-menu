@@ -3,12 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#9FB8DF" />
-    <meta name="description" content="A calm, decision-friendly restaurant menu." />
+    <meta name="theme-color" content="#2C3E56" />
+    <meta name="description" content="Utopia Cafe & Grill menu. College Street since 1995." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@100..900&display=swap" rel="stylesheet" />
-    <title>Utopia — Dinner tonight</title>
+    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=Nunito:wght@700;800&display=swap" rel="stylesheet" />
+    <title>utopia, Cafe & Grill</title>
+    <script>
+      (function () {
+        var hour = new Date().getHours()
+        var night = hour < 7 || hour >= 18
+        document.documentElement.classList.toggle('dark', night)
+        document.documentElement.dataset.theme = night ? 'night' : 'day'
+        document.documentElement.style.colorScheme = night ? 'dark' : 'light'
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
