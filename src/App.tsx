@@ -1379,7 +1379,7 @@ export function App() {
               setShowDetailSheet(false)
               window.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' })
             }} />
-            <div className="bottom-sheet">
+            <div className="bottom-sheet bottom-sheet-detail">
               <button className="bottom-sheet-close" type="button" onClick={() => {
                 haptic('light')
                 setShowDetailSheet(false)
@@ -1947,6 +1947,7 @@ function DetailView({ dish, customization, saved, onBack, onSave, onCustomizatio
 
   return (
     <section className="view detail-view detail-sheet-view">
+      <div className="detail-sheet-scroll">
       <DishArt dish={dish} large locale={locale} />
 
       <div className="detail-title">
@@ -2102,6 +2103,7 @@ function DetailView({ dish, customization, saved, onBack, onSave, onCustomizatio
           </Card.Content>
         </Card>
       )}
+      </div>
 
       <div className="sticky-action">
         <Button fullWidth isDisabled={!dish.available} onPress={() => {

@@ -2406,28 +2406,17 @@ p {
   margin-top: 1rem;
 }
 
-.bottom-sheet .sticky-action {
-  position: absolute;
-  left: 1.4rem;
-  right: 1.4rem;
-  bottom: max(1.05rem, env(safe-area-inset-bottom, 0px));
+/* Detail sheet: Add lives in a real footer so it cannot cover the review card. */
+.bottom-sheet-detail .sticky-action {
+  position: relative;
   z-index: 5;
+  flex: 0 0 auto;
   width: auto;
   max-width: none;
-  transform: none;
-  margin-top: 0;
-  padding-top: 0;
-}
-
-.bottom-sheet .sticky-action::before {
-  content: "";
-  position: absolute;
-  left: -1.4rem;
-  right: -1.4rem;
-  bottom: 100%;
-  height: 1.5rem;
-  background: linear-gradient(to top, var(--surface), transparent);
-  pointer-events: none;
+  margin: 0;
+  padding: 0.7rem 0 calc(0.8rem + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  box-shadow: 0 -0.7rem 1.4rem color-mix(in oklch, var(--surface) 88%, transparent);
 }
 
 .detail-actions {
@@ -2609,8 +2598,25 @@ p {
   min-height: 0;
 }
 
+/* Detail sheet scrolls the plate story; the Add bar stays parked underneath. */
+.bottom-sheet-detail {
+  overflow: hidden;
+}
+
 .bottom-sheet .detail-sheet-view {
-  padding-bottom: 6.85rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 90vh;
+  padding-bottom: 0;
+}
+
+.detail-sheet-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 1.25rem;
 }
 
 @keyframes modal-overlay-in {
