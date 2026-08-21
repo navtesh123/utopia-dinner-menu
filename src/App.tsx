@@ -25,6 +25,7 @@ import { mealFromDate, useDayNightTheme } from './theme'
 import { TodaysPromos, type PromoCopy } from './TodaysPromos'
 import { DishExplain } from './DishExplain'
 import { FoodStage } from './FoodStage'
+import { OrderCelebrate } from './OrderCelebrate'
 import { UpsellSheet, type UpsellCopy } from './UpsellSheet'
 import { WebReviews } from './WebReviews'
 import {
@@ -154,6 +155,9 @@ type ShortlistStrings = {
   showToServer: string
   emptyTitle: string
   emptyBody: string
+  orderedCta: string
+  enjoyTitle: string
+  enjoyBody: string
 }
 
 type ChefStrings = {
@@ -503,6 +507,9 @@ const ui: Record<Locale, AppCopy> = {
       showToServer: 'Show to server',
       emptyTitle: 'Your shortlist is empty',
       emptyBody: 'Save dishes to keep a calm, order-ready list.',
+      orderedCta: 'I have ordered',
+      enjoyTitle: 'Enjoy your meal',
+      enjoyBody: 'Utopia will take it from here. See you at the table.',
     },
     chef: {
       sectionLabel: 'MEET THE CHEF RECOMMENDATION',
@@ -702,6 +709,9 @@ const ui: Record<Locale, AppCopy> = {
       showToServer: 'Montrer au serveur',
       emptyTitle: 'Votre liste courte est vide',
       emptyBody: 'Enregistrez des plats pour garder une liste calme et prete a commander.',
+      orderedCta: 'J ai commande',
+      enjoyTitle: 'Bon appetit',
+      enjoyBody: 'Utopia s occupe du reste. A table.',
     },
     chef: {
       sectionLabel: 'RECOMMANDATION DU CHEF',
@@ -917,6 +927,8 @@ export function App() {
   const [showShortlistModal, setShowShortlistModal] = useState(false)
   const [showDetailSheet, setShowDetailSheet] = useState(false)
   const [upsell, setUpsell] = useState<{ source: Dish; suggestions: PairingSuggestion[] } | null>(null)
+  const [celebrate, setCelebrate] = useState(false)
+  const celebrateTimer = useRef<number>(0)
 
   const [heroSlide, setHeroSlide] = useState(0)
 
@@ -930,8 +942,10 @@ export function App() {
   useEffect(() => localStorage.setItem('utopia-language', language), [language])
 
   useEffect(() => {
-    document.body.style.overflow = showShortlistModal || showDetailSheet || Boolean(upsell) ? 'hidden' : ''
-  }, [showShortlistModal, showDetailSheet, upsell])
+    document.body.style.overflow = showShortlistModal || showDetailSheet || Boolean(upsell) || celebrate ? 'hidden' : ''
+  }, [showShortlistModal, showDetailSheet, upsell, celebrate])
+
+  useEffect(() => () => window.clearTimeout(celebrateTimer.current), [])
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -1013,6 +1027,24 @@ export function App() {
   /** Add from the upsell sheet without opening another upsell. */
   const addQuiet = (id: string) => {
     setQuantity(id, (quantities[id] ?? 0) + 1)
+  }
+
+  /** Guest already placed the order at the table: celebrate, empty the cart, return to the menu. */
+  const finishOrder = () => {
+    haptic('heavy')
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    setCelebrate(true)
+    setShowShortlistModal(false)
+    setShowDetailSheet(false)
+    setUpsell(null)
+    setQuantities({})
+    setDishCustomizations({})
+    setView('menu')
+    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' })
+    window.clearTimeout(celebrateTimer.current)
+    celebrateTimer.current = window.setTimeout(() => {
+      setCelebrate(false)
+    }, reduceMotion ? 1400 : 2400)
   }
 
   const toggleShortlist = (id: string) => setQuantities((current) => {
@@ -1293,11 +1325,7 @@ export function App() {
             locale={language}
             quantities={quantities}
             onRemove={toggleShortlist}
-            onServer={() => showServerMessage({
-              title: copy.readyForServer.title,
-              description: copy.readyForServer.description,
-              status: 'accent',
-            })}
+            onOrdered={finishOrder}
             strings={copy.shortlist}
           />
         )}
@@ -1337,15 +1365,7 @@ export function App() {
                 locale={language}
                 quantities={quantities}
                 onRemove={toggleShortlist}
-                onServer={() => {
-                  haptic('medium')
-                  showServerMessage({
-                    title: copy.readyForServer.title,
-                    description: copy.readyForServer.description,
-                    status: 'accent',
-                  })
-                  setShowShortlistModal(false)
-                }}
+                onOrdered={finishOrder}
                 strings={copy.shortlist}
               />
             </div>
@@ -1442,6 +1462,12 @@ export function App() {
           </>
         )}
 
+        {celebrate && (
+          <OrderCelebrate
+            title={copy.shortlist.enjoyTitle}
+            body={copy.shortlist.enjoyBody}
+          />
+        )}
       </div>
     </main>
   )
@@ -2233,7 +2259,7 @@ function ShortlistView({
   quantities,
   customizations,
   onRemove,
-  onServer,
+  onOrdered,
   locale,
   strings,
 }: {
@@ -2241,7 +2267,7 @@ function ShortlistView({
   quantities: Record<string, number>
   customizations: Record<string, DishCustomizationState>
   onRemove: (id: string) => void
-  onServer: () => void
+  onOrdered: () => void
   locale: Locale
   strings: ShortlistStrings
 }) {
@@ -2303,6 +2329,11 @@ function ShortlistView({
           <div className="order-total">
             <strong>{strings.totalLabel}</strong>
             <strong>{money(total)}</strong>
+          </div>
+          <div className="shortlist-action">
+            <Button className="ordered-cta" fullWidth onPress={onOrdered}>
+              {strings.orderedCta}
+            </Button>
           </div>
         </>
       ) : (
