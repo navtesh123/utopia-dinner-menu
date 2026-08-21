@@ -166,27 +166,40 @@ p {
   height: 21rem;
   margin: 0 -1.4rem;
   overflow: hidden;
-  background: color-mix(in oklch, var(--navy) 55%, var(--accent));
+  background: color-mix(in oklch, var(--navy) 58%, var(--wood));
 }
 
-.hero-photo {
+.hero-photo-slide {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
   opacity: 0;
   transition: opacity 700ms ease;
+  pointer-events: none;
 }
 
-.hero-photo.is-active {
+.hero-photo-slide.is-active {
   opacity: 1;
+}
+
+.hero-photos .food-stage {
+  position: absolute;
+  inset: 0;
+}
+
+.hero-photos .food-stage-plate {
+  top: 40%;
+  height: 68%;
+  width: auto;
+  max-width: 82%;
 }
 
 .hero-photos-scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, color-mix(in oklch, var(--navy) 55%, transparent) 0%, transparent 48%);
+  z-index: 1;
+  background:
+    radial-gradient(ellipse at 50% 36%, oklch(92% 0.07 95 / 12%), transparent 48%),
+    linear-gradient(to bottom, color-mix(in oklch, var(--navy) 48%, transparent) 0%, transparent 42%);
   pointer-events: none;
 }
 
@@ -818,11 +831,8 @@ p {
   cursor: pointer;
 }
 
-.chef-recommendation-card img {
-  width: 100%;
+.chef-recommendation-card .food-stage {
   height: 8.5rem;
-  display: block;
-  object-fit: cover;
 }
 
 .chef-recommendation-card span {
@@ -856,7 +866,7 @@ p {
     animation: none;
   }
 
-  .hero-photo {
+  .hero-photo-slide {
     transition: none;
   }
 
@@ -978,10 +988,8 @@ p {
   text-transform: uppercase;
 }
 
-.todays-promo-image {
-  width: 100%;
+.todays-promo-stage {
   height: 8.5rem;
-  object-fit: cover;
   border-radius: 0.85rem;
   outline: 1px solid color-mix(in oklch, var(--navy) 12%, transparent);
 }
@@ -1276,18 +1284,22 @@ p {
 }
 
 .most-loved-card-image-wrap {
+  position: relative;
   width: 100%;
   height: 12rem;
   overflow: hidden;
-  background: #e8e4dc;
+  background: color-mix(in oklch, var(--navy) 40%, var(--wood));
   border-radius: 1.2rem 1.2rem 0 0;
 }
 
-.most-loved-card-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+.most-loved-card-image-wrap .food-stage {
+  height: 12rem;
+}
+
+.most-loved-card-image-wrap .food-stage-plate {
+  height: 82%;
+  width: auto;
+  max-width: 78%;
 }
 
 .most-loved-card-content {
@@ -1543,6 +1555,51 @@ p {
   }
 }
 
+/* Food photos: show the plate, not a grease close-up. */
+.food-stage {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  background: color-mix(in oklch, var(--navy) 55%, var(--wood));
+}
+
+.food-stage-bleed {
+  position: absolute;
+  inset: -22%;
+  width: 144%;
+  height: 144%;
+  object-fit: cover;
+  filter: blur(34px) saturate(0.48) brightness(0.58);
+  transform: scale(1.05);
+  pointer-events: none;
+}
+
+.food-stage-plate {
+  position: absolute;
+  left: 50%;
+  top: 48%;
+  z-index: 1;
+  width: auto;
+  height: 78%;
+  max-width: 86%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  object-position: center 46%;
+  transform: translate(-50%, -50%);
+  border-radius: 0.9rem;
+  filter: saturate(0.88) contrast(0.94) brightness(1.08);
+  box-shadow:
+    0 0.18rem 0.5rem oklch(22% 0.03 75 / 20%),
+    0 1.1rem 2.3rem oklch(18% 0.03 255 / 36%);
+}
+
+.dish-art-image,
+.upsell-image,
+.hero-card-image {
+  filter: saturate(0.86) contrast(0.93) brightness(1.07);
+}
+
 .dish-art {
   width: 7.2rem;
   height: 6.3rem;
@@ -1559,9 +1616,23 @@ p {
 }
 
 .dish-art.large {
+  position: relative;
   width: 100%;
-  height: 14rem;
+  height: 16.5rem;
   margin: 0.75rem 0 1.1rem;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: color-mix(in oklch, var(--navy) 42%, var(--wood));
+}
+
+.dish-art.large .food-stage {
+  height: 16.5rem;
+}
+
+.dish-art.large .food-stage-plate {
+  height: 84%;
+  width: auto;
+  max-width: 88%;
 }
 
 .pairing-content .dish-art,
@@ -1759,7 +1830,7 @@ p {
   line-height: 1.45;
 }
 
-/* Explain-this-dish: yellow ask button, airy copy, accent on culinary terms. */
+/* Explain-this-dish: yellow ask button opens a story card over the plate. */
 .dish-explain {
   margin: 0.35rem 0 0.15rem;
 }
@@ -1772,20 +1843,98 @@ p {
   font-weight: 700;
   letter-spacing: 0.01em;
   box-shadow: 0 0.4rem 1.35rem color-mix(in oklch, var(--accent) 42%, transparent);
+  transition-property: transform;
+  transition-duration: 140ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
-.dish-explain-body {
+.dish-explain-ask:active {
+  transform: scale(0.96);
+}
+
+.dish-explain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  align-items: end;
+  justify-items: center;
+  padding: 1rem 0.9rem max(1.2rem, env(safe-area-inset-bottom, 0px));
+  background: oklch(16% 0.03 255 / 55%);
+}
+
+.dish-explain-card {
+  position: relative;
+  width: min(100%, 398px);
+  max-height: min(78vh, 38rem);
+  overflow-y: auto;
+  padding: 0.35rem 1.4rem 1.55rem;
+  border-radius: 1.5rem;
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow:
+    0 0.4rem 1rem oklch(18% 0.03 255 / 18%),
+    0 1.6rem 3.4rem oklch(16% 0.03 255 / 38%);
+}
+
+.dish-explain-card-handle {
+  width: 2.6rem;
+  height: 0.28rem;
+  margin: 0.55rem auto 0.85rem;
+  border-radius: 999px;
+  background: var(--muted);
+  opacity: 0.38;
+}
+
+.dish-explain-card-close {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.9rem;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--surface-secondary) 88%, var(--foreground));
+  color: var(--foreground);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.dish-explain-card-close svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.dish-explain-card-kicker {
+  display: block;
+  padding-right: 2.2rem;
+}
+
+.dish-explain-card-title {
+  margin: 0.35rem 0 1.15rem;
+  padding-right: 1.6rem;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+.dish-explain-card-story {
   display: grid;
   gap: 0.95rem;
-  margin: 1.1rem 0.05rem 0.35rem;
 }
 
-.dish-explain-body p {
+.dish-explain-card-story p {
   margin: 0;
   color: color-mix(in oklch, var(--foreground) 90%, var(--muted));
-  font-size: 1.05rem;
+  font-size: 1.08rem;
   line-height: 1.58;
   letter-spacing: -0.012em;
+  text-wrap: pretty;
 }
 
 .dish-explain-mark {
@@ -1799,20 +1948,77 @@ p {
   color: color-mix(in oklch, var(--accent) 78%, oklch(78% 0.08 80));
 }
 
+.dish-explain-card .dish-explain-pills {
+  margin-top: 1.25rem;
+}
+
 @media (prefers-reduced-motion: no-preference) {
-  .dish-explain-body {
-    animation: dish-explain-in 280ms var(--ease-out);
+  .dish-explain-overlay {
+    animation: dish-explain-overlay-in 280ms var(--ease-out);
+  }
+
+  .dish-explain-card {
+    animation: dish-explain-card-in 340ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .dish-explain-card-kicker,
+  .dish-explain-card-title,
+  .dish-explain-card-story p,
+  .dish-explain-card .dish-explain-pills {
+    animation: dish-explain-copy-in 420ms var(--ease-out) both;
+  }
+
+  .dish-explain-card-title {
+    animation-delay: 80ms;
+  }
+
+  .dish-explain-card-story p:nth-child(1) {
+    animation-delay: 140ms;
+  }
+
+  .dish-explain-card-story p:nth-child(2) {
+    animation-delay: 220ms;
+  }
+
+  .dish-explain-card-story p:nth-child(3) {
+    animation-delay: 300ms;
+  }
+
+  .dish-explain-card .dish-explain-pills {
+    animation-delay: 380ms;
   }
 }
 
-@keyframes dish-explain-in {
+@keyframes dish-explain-overlay-in {
   from {
     opacity: 0;
-    transform: translateY(0.35rem);
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dish-explain-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(1.35rem) scale(0.97);
   }
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes dish-explain-copy-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.45rem);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
   }
 }
 

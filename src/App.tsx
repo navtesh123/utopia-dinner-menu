@@ -24,6 +24,7 @@ import { isTodayPromo, promoPrice, sellingPrice } from './pricing'
 import { mealFromDate, useDayNightTheme } from './theme'
 import { TodaysPromos, type PromoCopy } from './TodaysPromos'
 import { DishExplain } from './DishExplain'
+import { FoodStage } from './FoodStage'
 import { UpsellSheet, type UpsellCopy } from './UpsellSheet'
 import { WebReviews } from './WebReviews'
 import {
@@ -104,7 +105,8 @@ type DetailStrings = {
   reviewTitle: string
   reviewSource: string
   explain: string
-  hideExplain: string
+  explainClose: string
+  explainKicker: string
 }
 
 type ChooseStep = {
@@ -420,7 +422,8 @@ const ui: Record<Locale, AppCopy> = {
       reviewTitle: 'Review summary',
       reviewSource: 'Based on user reviews from Google Maps, Yelp, etc.',
       explain: 'Explain this dish',
-      hideExplain: 'Hide the story',
+      explainClose: 'Close the story',
+      explainKicker: 'THE STORY',
     },
     choose: {
       introLabel: 'FIND MY PLATE',
@@ -613,7 +616,8 @@ const ui: Record<Locale, AppCopy> = {
       reviewTitle: 'Resume des avis',
       reviewSource: 'D apres les avis des clients sur Google Maps, Yelp, etc.',
       explain: 'Expliquer ce plat',
-      hideExplain: 'Masquer l histoire',
+      explainClose: 'Fermer l histoire',
+      explainKicker: 'L HISTOIRE',
     },
     choose: {
       introLabel: 'TROUVEZ MON ASSIETTE',
@@ -844,7 +848,11 @@ function DishArt({ dish, locale, large = false }: { dish: Dish; locale: Locale; 
 
   return (
     <div className={`dish-art ${dish.colour} ${large ? 'large' : ''}`} aria-label={label} role="img">
-      <img alt="" className="dish-art-image" src={dish.image} />
+      {large ? (
+        <FoodStage src={dish.image} />
+      ) : (
+        <img alt="" className="dish-art-image" src={dish.image} />
+      )}
     </div>
   )
 }
@@ -1052,13 +1060,12 @@ export function App() {
         <header className="hero-header">
           <div className="hero-photos">
             {heroPhotos.map((src, index) => (
-              <img
-                alt=""
-                aria-hidden="true"
-                className={`hero-photo${index === heroSlide ? ' is-active' : ''}`}
+              <div
+                className={`hero-photo-slide${index === heroSlide ? ' is-active' : ''}`}
                 key={src}
-                src={src}
-              />
+              >
+                <FoodStage src={src} />
+              </div>
             ))}
             <div className="hero-photos-scrim" aria-hidden="true" />
             <div className="hero-photo-dots">
@@ -1605,7 +1612,7 @@ function ChefView({ locale, onBack, onDish, strings }: { locale: Locale; onBack:
                 haptic('medium')
                 onDish(dish)
               }}>
-                <img alt="" src={dish.image} />
+                <FoodStage src={dish.image} />
                 <span>
                   <strong>{localize(dish.name, locale)}</strong>
                   <small><PriceDisplay dish={dish} /></small>
@@ -1641,7 +1648,7 @@ function MostLovedSection({ locale, onDish, onAdd, onQuantity, quantities }: { l
               onDish(dish)
             }}>
               <div className="most-loved-card-image-wrap">
-                <img alt="" className="most-loved-card-image" src={dish.image} />
+                <FoodStage src={dish.image} />
               </div>
               <div className="most-loved-card-content">
                 <div className="most-loved-card-header">
@@ -1927,9 +1934,11 @@ function DetailView({ dish, customization, saved, onBack, onSave, onCustomizatio
       <Tags tags={dish.tags} locale={locale} />
       <DishExplain
         dishId={dish.id}
-        hideLabel={strings.hideExplain}
+        dishName={localize(dish.name, locale)}
+        kicker={strings.explainKicker}
         locale={locale}
         askLabel={strings.explain}
+        closeLabel={strings.explainClose}
         onHaptic={haptic}
       />
 

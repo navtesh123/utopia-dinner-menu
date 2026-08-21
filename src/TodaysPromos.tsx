@@ -4,6 +4,7 @@
 import { Button } from '@heroui/react'
 import type { ReactNode } from 'react'
 import { dishes, localize, type Locale } from './data'
+import { FoodStage } from './FoodStage'
 import { TODAY_PROMO_IDS, TODAY_PROMO_PERCENT, promoPrice } from './pricing'
 import { logWarn } from './logger'
 
@@ -68,7 +69,7 @@ export function TodaysPromos({
                 }}
               >
                 <span className="todays-promo-badge">{TODAY_PROMO_PERCENT}% off</span>
-                <img alt="" className="todays-promo-image" src={dish.image} />
+                <FoodStage className="todays-promo-stage" src={dish.image} />
                 <span className="todays-promo-copy">
                   <strong>{localize(dish.name, locale)}</strong>
                   <span className="todays-promo-prices">
