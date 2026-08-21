@@ -1759,6 +1759,96 @@ p {
   line-height: 1.45;
 }
 
+/* Explain-this-dish: yellow ask button, airy copy, accent on culinary terms. */
+.dish-explain {
+  margin: 0.35rem 0 0.15rem;
+}
+
+.dish-explain-ask {
+  min-height: 3.2rem;
+  border-radius: 1.15rem !important;
+  background: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 0 0.4rem 1.35rem color-mix(in oklch, var(--accent) 42%, transparent);
+}
+
+.dish-explain-body {
+  display: grid;
+  gap: 0.95rem;
+  margin: 1.1rem 0.05rem 0.35rem;
+}
+
+.dish-explain-body p {
+  margin: 0;
+  color: color-mix(in oklch, var(--foreground) 90%, var(--muted));
+  font-size: 1.05rem;
+  line-height: 1.58;
+  letter-spacing: -0.012em;
+}
+
+.dish-explain-mark {
+  font-style: normal;
+  font-weight: 650;
+  color: color-mix(in oklch, var(--navy) 62%, var(--accent) 38%);
+}
+
+[data-theme="night"] .dish-explain-mark,
+[data-theme="dark"] .dish-explain-mark {
+  color: color-mix(in oklch, var(--accent) 78%, oklch(78% 0.08 80));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dish-explain-body {
+    animation: dish-explain-in 280ms var(--ease-out);
+  }
+}
+
+@keyframes dish-explain-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.35rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.dish-explain-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.2rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dish-explain-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.34rem 0.78rem;
+  border: 1px solid color-mix(in oklch, var(--foreground) 18%, transparent);
+  border-radius: 999px;
+  color: color-mix(in oklch, var(--muted) 88%, var(--foreground));
+  font-size: 0.78rem;
+  font-weight: 520;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+}
+
+.dish-explain-pill[data-accent="true"] {
+  border-color: color-mix(in oklch, var(--accent) 72%, oklch(72% 0.08 80));
+  color: color-mix(in oklch, var(--navy) 55%, var(--accent) 45%);
+}
+
+[data-theme="night"] .dish-explain-pill[data-accent="true"],
+[data-theme="dark"] .dish-explain-pill[data-accent="true"] {
+  border-color: color-mix(in oklch, var(--accent) 78%, oklch(78% 0.08 80));
+  color: color-mix(in oklch, var(--accent) 82%, oklch(80% 0.08 80));
+}
+
 .review-summary-card {
   margin: 1rem 0 0.25rem;
   padding: 1rem 1.05rem 0.95rem;

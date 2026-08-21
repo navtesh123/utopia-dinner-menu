@@ -23,6 +23,7 @@ import { upsellsFor, type PairingSuggestion } from './pairings'
 import { isTodayPromo, promoPrice, sellingPrice } from './pricing'
 import { mealFromDate, useDayNightTheme } from './theme'
 import { TodaysPromos, type PromoCopy } from './TodaysPromos'
+import { DishExplain } from './DishExplain'
 import { UpsellSheet, type UpsellCopy } from './UpsellSheet'
 import { WebReviews } from './WebReviews'
 import {
@@ -102,6 +103,8 @@ type DetailStrings = {
   add: string
   reviewTitle: string
   reviewSource: string
+  explain: string
+  hideExplain: string
 }
 
 type ChooseStep = {
@@ -416,6 +419,8 @@ const ui: Record<Locale, AppCopy> = {
       add: 'Add to shortlist',
       reviewTitle: 'Review summary',
       reviewSource: 'Based on user reviews from Google Maps, Yelp, etc.',
+      explain: 'Explain this dish',
+      hideExplain: 'Hide the story',
     },
     choose: {
       introLabel: 'FIND MY PLATE',
@@ -607,6 +612,8 @@ const ui: Record<Locale, AppCopy> = {
       add: 'Ajouter a la liste courte',
       reviewTitle: 'Resume des avis',
       reviewSource: 'D apres les avis des clients sur Google Maps, Yelp, etc.',
+      explain: 'Expliquer ce plat',
+      hideExplain: 'Masquer l histoire',
     },
     choose: {
       introLabel: 'TROUVEZ MON ASSIETTE',
@@ -1918,6 +1925,13 @@ function DetailView({ dish, customization, saved, onBack, onSave, onCustomizatio
       </div>
       <p className="detail-summary">{localize(dish.summary, locale)}</p>
       <Tags tags={dish.tags} locale={locale} />
+      <DishExplain
+        dishId={dish.id}
+        hideLabel={strings.hideExplain}
+        locale={locale}
+        askLabel={strings.explain}
+        onHaptic={haptic}
+      />
 
       <section className="nutrition">
         <span className="section-label">{strings.nutrition}</span>
