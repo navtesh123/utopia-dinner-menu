@@ -229,7 +229,7 @@ const heroSlideInterval = 5000
 const chefProfile = {
   name: 'Maya Laurent',
   role: 'Chef, Utopia Cafe & Grill',
-  image: 'https://images.unsplash.com/photo-1763685805275-1845419c01a1?fm=jpg&q=80&w=1200&auto=format&fit=crop',
+  image: '/utopia-storefront.jpg',
   story: {
     EN: 'Maya cooks like Utopia serves the neighborhood: generous, fast-moving, and full of color. Her menu picks lean into the cafe classics that regulars come back for after work, before a show, or when the table wants a little bit of everything.',
     FR: 'Maya cuisine comme Utopia accueille le quartier : avec generosite, energie et couleur. Ses choix mettent en valeur les classiques du cafe que les habitues reprennent apres le travail, avant un spectacle ou quand la table veut partager un peu de tout.',
