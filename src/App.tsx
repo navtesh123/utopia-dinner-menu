@@ -2057,17 +2057,19 @@ function DetailView({ dish, customization, saved, onBack, onSave, onCustomizatio
           </Card.Header>
           <Card.Content>
             {suggestedPairs.map(({ dish: pair, reason }) => (
-              <Button fullWidth key={pair.id} variant="ghost" onPress={() => {
+              <Button className="pairing-row" fullWidth key={pair.id} variant="ghost" onPress={() => {
                 haptic('medium')
                 onPairing(pair)
               }}>
                 <span className="pairing-content">
                   <DishArt dish={pair} locale={locale} />
-                  <span>
+                  <span className="pairing-copy">
                     <strong>{localize(pair.name, locale)}</strong>
                     <span>{localize(reason, locale)}</span>
                   </span>
-                  <PriceDisplay dish={pair} />
+                  <span className="pairing-price">
+                    <PriceDisplay dish={pair} />
+                  </span>
                 </span>
               </Button>
             ))}

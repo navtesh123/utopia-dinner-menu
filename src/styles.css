@@ -905,8 +905,11 @@ p {
 
 .price-sale {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.4rem;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .price-sale s {
@@ -1082,9 +1085,11 @@ p {
 }
 
 .upsell-price {
+  flex-shrink: 0;
   font-size: 0.85rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .upsell-add {
@@ -1243,10 +1248,12 @@ p {
 .most-loved-track {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(19rem, 1fr);
+  /* One full card in view. A thin peek of the next card, never a cut Add button. */
+  grid-auto-columns: calc(100% - 0.85rem);
   gap: 0.75rem;
   overflow-x: auto;
-  padding: 0 1.4rem 0.35rem;
+  padding: 0 1.4rem 0.55rem;
+  scroll-snap-type: x mandatory;
   scroll-padding-inline: 1.4rem;
   scrollbar-width: none;
 }
@@ -1258,10 +1265,13 @@ p {
 .most-loved-card {
   display: grid;
   gap: 0;
+  min-width: 0;
   overflow: hidden;
   border-radius: 1.2rem;
   background: var(--surface);
   box-shadow: 0 0.4rem 1.2rem var(--shadow-ink);
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
   transition: box-shadow 200ms var(--ease-out), transform 200ms var(--ease-out);
 }
 
@@ -1315,6 +1325,11 @@ p {
   justify-content: space-between;
   gap: 0.5rem;
   min-width: 0;
+}
+
+.most-loved-card-header > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .most-loved-card-tag-icon {
@@ -1726,9 +1741,15 @@ p {
 .category-heading,
 .detail-title {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.detail-title > strong {
+  flex-shrink: 0;
+  padding-top: 1.35rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .category-heading h2,
@@ -1819,6 +1840,7 @@ p {
 .detail-title h2 {
   margin-top: 0.3rem;
   font-size: 1.8rem;
+  overflow-wrap: anywhere;
 }
 
 .detail-view {
@@ -2331,23 +2353,48 @@ p {
   font-size: 1rem;
 }
 
+.pairing-row {
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0.55rem 0.1rem !important;
+  white-space: normal !important;
+  justify-content: stretch !important;
+}
+
 .pairing-content {
   width: 100%;
+  min-width: 0;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.65rem;
+  grid-template-columns: 4.4rem minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.7rem;
   text-align: left;
 }
 
-.pairing-content > span {
+.pairing-copy {
   display: grid;
   gap: 0.2rem;
+  min-width: 0;
 }
 
-.pairing-content > span > span {
+.pairing-copy strong {
+  overflow-wrap: anywhere;
+}
+
+.pairing-copy > span {
   color: var(--muted);
   font-size: 0.75rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.pairing-price {
+  display: grid;
+  justify-items: end;
+  align-content: start;
+  padding-top: 0.15rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .sticky-action {
@@ -2358,15 +2405,27 @@ p {
 }
 
 .bottom-sheet .sticky-action {
-  position: fixed;
-  bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 2.8rem);
-  max-width: 339px;
-  z-index: 102;
+  position: absolute;
+  left: 1.4rem;
+  right: 1.4rem;
+  bottom: max(1.05rem, env(safe-area-inset-bottom, 0px));
+  z-index: 5;
+  width: auto;
+  max-width: none;
+  transform: none;
   margin-top: 0;
-  padding-top: 1rem;
+  padding-top: 0;
+}
+
+.bottom-sheet .sticky-action::before {
+  content: "";
+  position: absolute;
+  left: -1.4rem;
+  right: -1.4rem;
+  bottom: 100%;
+  height: 1.5rem;
+  background: linear-gradient(to top, var(--surface), transparent);
+  pointer-events: none;
 }
 
 .detail-actions {
@@ -2521,15 +2580,16 @@ p {
 }
 
 .bottom-sheet-close {
-  position: fixed;
-  top: calc(10vh + 1.1rem);
-  right: max(1.25rem, calc(50vw - 215px + 1.25rem));
-  z-index: 101;
-  width: 2rem;
-  height: 2rem;
+  position: absolute;
+  top: 0.95rem;
+  right: 1.05rem;
+  z-index: 6;
+  width: 2.15rem;
+  height: 2.15rem;
   padding: 0;
   border: 0;
-  background: transparent;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--surface) 88%, transparent);
   color: var(--foreground);
   cursor: pointer;
   display: grid;
@@ -2542,9 +2602,13 @@ p {
 }
 
 .bottom-sheet .view {
-  padding: 4rem 1.4rem 1.6rem;
+  padding: 3.35rem 1.4rem 1.6rem;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+.bottom-sheet .detail-sheet-view {
+  padding-bottom: 6.85rem;
 }
 
 @keyframes modal-overlay-in {
@@ -2600,6 +2664,11 @@ p {
   grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: start;
   gap: 0.65rem;
+  min-width: 0;
+}
+
+.shortlist-items article > div:nth-child(2) {
+  min-width: 0;
 }
 
 .shortlist-items article p {
@@ -2622,6 +2691,8 @@ p {
   justify-items: end;
   gap: 0.2rem;
   text-align: right;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .shortlist-price span {
@@ -2678,7 +2749,7 @@ p {
 .cart-banner {
   position: fixed;
   left: 50%;
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(4.65rem + env(safe-area-inset-bottom, 0px));
   z-index: 19;
   width: min(398px, calc(100vw - 32px));
   transform: translateX(-50%);
@@ -2786,15 +2857,22 @@ p {
   }
 
   .hero-carousel,
-  .todays-promos {
+  .todays-promos,
+  .most-loved-section {
     width: calc(100% + 2rem);
     margin-inline: -1rem;
   }
 
   .todays-promos-header,
-  .todays-promos-track {
+  .todays-promos-track,
+  .most-loved-header,
+  .most-loved-track {
     padding-left: 1rem;
     padding-right: 1rem;
+  }
+
+  .most-loved-track {
+    scroll-padding-inline: 1rem;
   }
 
   .hero-photos {
